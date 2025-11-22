@@ -1,0 +1,30 @@
+{
+  "name": "socialbook-backend",
+  "version": "1.0.0",
+  "description": "NestJS backend for Socialbook",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.3.10",
+    "@nestjs/core": "^10.3.10",
+    "@nestjs/platform-express": "^10.3.10",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.3.2",
+    "@types/node": "^20.14.10",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
