@@ -1,285 +1,460 @@
-const App = () => (
-  <>
-    <header className="topbar">
-      <div className="brand">
-        <span className="spark" />
-        <span className="wordmark">Socialbook</span>
-      </div>
-      <nav className="nav">
-        <a href="#feed">Feed</a>
-        <a href="#shelf">Shelf</a>
-        <a href="#recommendations">Recommended</a>
-        <a href="#reviews">Reviews</a>
-      </nav>
-      <button className="cta" type="button">
-        Start Reading
-      </button>
-    </header>
-    <main>
-      <section className="hero" id="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">For readers who socialize</p>
-          <h1>Track, share, and discover books together.</h1>
-          <p className="lede">
-            Live activity from friends, shelves that update automatically, and recommendations that learn what you
-            love.
-          </p>
-          <div className="actions">
-            <button className="primary" type="button">
-              Create account
-            </button>
-            <button className="ghost" type="button">
-              Browse community
-            </button>
+import { useEffect, useMemo, useState } from 'react';
+
+const AUTH_API = import.meta.env.VITE_AUTH_API || 'http://localhost:30400';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:30500';
+
+const defaultShelf = {
+  want_to_read: [],
+  currently_reading: [],
+  finished: [],
+  history: [],
+};
+
+const initials = (name = '') =>
+  name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+const getFriendList = (feed = []) => {
+  const map = new Map();
+  feed.forEach((item) => {
+    if (!item.user) return;
+    if (!map.has(item.user)) {
+      map.set(item.user, { user: item.user, count: 0, last: item });
+    }
+    const entry = map.get(item.user);
+    entry.count += 1;
+    if (new Date(item.created_at) > new Date(entry.last.created_at)) {
+      entry.last = item;
+    }
+  });
+  return Array.from(map.values());
+};
+
+const App = () => {
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [user, setUser] = useState(null);
+  const [status, setStatus] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
+
+  const [feed, setFeed] = useState([]);
+  const [shelf, setShelf] = useState(defaultShelf);
+  const [reviews, setReviews] = useState([]);
+
+  const [selectedFriend, setSelectedFriend] = useState(null);
+  const [selectedBook, setSelectedBook] = useState(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('sb_user');
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem('sb_user');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      setDataLoading(true);
+      try {
+        const [feedRes, shelfRes, reviewsRes] = await Promise.all([
+          fetch(`${API_BASE}/feed`).then((r) => r.json()),
+          fetch(`${API_BASE}/shelf`).then((r) => r.json()),
+          fetch(`${API_BASE}/reviews`).then((r) => r.json()),
+        ]);
+
+        const feedData = feedRes?.feed ?? [];
+        const shelfData = shelfRes?.shelf ?? defaultShelf;
+        const reviewData = reviewsRes?.reviews ?? [];
+
+        setFeed(feedData);
+        setShelf(shelfData);
+        setReviews(reviewData);
+
+        const friends = getFriendList(feedData);
+        const initialFriend = friends[0]?.user ?? null;
+        setSelectedFriend(initialFriend);
+
+        if (reviewData.length > 0) {
+          setSelectedBook(reviewData[0].book);
+        } else if (feedData.length > 0) {
+          setSelectedBook(feedData[0].book);
+        }
+      } catch (err) {
+        console.error('Failed to load data', err);
+        setStatus('Unable to load feed data right now.');
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    load();
+  }, [user]);
+
+  const handleAuth = async (evt) => {
+    evt.preventDefault();
+    setAuthLoading(true);
+    setStatus('');
+    try {
+      const res = await fetch(`${AUTH_API}/auth/${mode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          name: mode === 'register' ? name : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Unable to sign in');
+      }
+      setUser(data.user);
+      localStorage.setItem('sb_user', JSON.stringify(data.user));
+      setStatus(mode === 'login' ? 'Signed in.' : 'Account created.');
+      setName('');
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('sb_user');
+    setFeed([]);
+    setShelf(defaultShelf);
+    setReviews([]);
+    setSelectedBook(null);
+    setSelectedFriend(null);
+    setStatus('Signed out.');
+  };
+
+  const friendList = useMemo(() => getFriendList(feed), [feed]);
+
+  const friendBooks = useMemo(() => {
+    if (!selectedFriend) return [];
+    return feed.filter((item) => item.user === selectedFriend);
+  }, [feed, selectedFriend]);
+
+  const bookReviews = useMemo(() => {
+    if (!selectedBook) return [];
+    return reviews.filter((review) => review.book === selectedBook);
+  }, [reviews, selectedBook]);
+
+  if (!user) {
+    return (
+      <main className="auth-shell">
+        <div className="brand-lockup">
+          <div className="logo">
+            <span className="spark large" />
+            <div className="logo-text">
+              <span className="wordmark">Socialbook</span>
+              <span className="meta">Reading with friends</span>
+            </div>
           </div>
-          <div className="quick-stats">
-            <div className="pill">
-              Currently reading <strong>3</strong>
-            </div>
-            <div className="pill">
-              Finished this month <strong>6</strong>
-            </div>
-            <div className="pill">
-              New recs today <strong>4</strong>
-            </div>
-          </div>
+          <p className="lede">Sign in to see your books, your friends, and every review in one place.</p>
         </div>
-        <div className="hero-panels">
-          <article className="panel shadow">
-            <header>
+        <section className="auth-hero" id="login">
+          <article className="panel auth-card shadow">
+            <header className="panel-header">
               <div>
-                <p className="label">Personalized Activity Feed</p>
-                <h3>Friends finishing books in real time</h3>
+                <p className="label">{mode === 'login' ? 'Welcome back' : 'Join the circle'}</p>
+                <h3>{mode === 'login' ? 'Log in to Socialbook' : 'Create your account'}</h3>
               </div>
-              <span className="badge success">Live</span>
+              <div className="auth-toggle">
+                <button
+                  type="button"
+                  className={mode === 'login' ? 'tab active' : 'tab'}
+                  onClick={() => setMode('login')}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  className={mode === 'register' ? 'tab active' : 'tab'}
+                  onClick={() => setMode('register')}
+                >
+                  Register
+                </button>
+              </div>
+            </header>
+            <form className="form vertical" onSubmit={handleAuth}>
+              {mode === 'register' && (
+                <div className="field">
+                  <label htmlFor="name">Name</label>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    placeholder="Amina Gomez"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+              <div className="field">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="reader@socialbook.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="•••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <button className="primary" type="submit" disabled={authLoading}>
+                {authLoading ? 'Working...' : mode === 'login' ? 'Login' : 'Register'}
+              </button>
+              {status && <p className="meta status">{status}</p>}
+            </form>
+            <div className="switcher">
+              {mode === 'login' ? (
+                <>
+                  <span className="meta">No account yet?</span>
+                  <button type="button" className="ghost" onClick={() => setMode('register')}>
+                    Create one
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="meta">Already have an account?</span>
+                  <button type="button" className="ghost" onClick={() => setMode('login')}>
+                    Go to login
+                  </button>
+                </>
+              )}
+            </div>
+          </article>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <>
+      <header className="topbar">
+        <div className="brand">
+          <span className="spark" />
+          <span className="wordmark">Socialbook</span>
+        </div>
+        <div className="nav">
+          <span className="badge success">Signed in</span>
+          <span className="meta">{user?.email}</span>
+        </div>
+        <button className="ghost" type="button" onClick={handleLogout}>
+          Sign out
+        </button>
+      </header>
+
+      <main>
+        <section className="hero">
+          <div className="hero-copy">
+            <p className="eyebrow">Your library</p>
+            <h1>All your books and friends in one feed.</h1>
+            <p className="lede">
+              You are signed in as <strong>{user?.email}</strong>. Browse your shelf, peek at friends, and open any
+              book to see its reviews instantly.
+            </p>
+            {status && <p className="meta status">{status}</p>}
+            {dataLoading && <p className="meta">Loading latest feed...</p>}
+          </div>
+          <div className="panel shadow">
+            <div className="panel-header">
+              <div>
+                <p className="label">Quick glance</p>
+                <h3>Your shelf totals</h3>
+              </div>
+              <span className="badge">Live</span>
+            </div>
+            <div className="history">
+              <div className="history-card">
+                <p className="label">Want to Read</p>
+                <h4>{shelf.want_to_read.length}</h4>
+              </div>
+              <div className="history-card">
+                <p className="label">Reading</p>
+                <h4>{shelf.currently_reading.length}</h4>
+              </div>
+              <div className="history-card">
+                <p className="label">Finished</p>
+                <h4>{shelf.finished.length}</h4>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="board">
+          <article className="panel">
+            <header className="panel-header">
+              <div>
+                <p className="label">Your shelf</p>
+                <h3>Books you are tracking</h3>
+              </div>
+              <span className="badge">You</span>
+            </header>
+            <div className="shelf">
+              <div className="shelf-row">
+                <p>Want to Read</p>
+                <p className="meta">{shelf.want_to_read.join(', ') || 'No titles yet'}</p>
+              </div>
+              <div className="shelf-row">
+                <p>Currently Reading</p>
+                <p className="meta">{shelf.currently_reading.join(', ') || 'No titles yet'}</p>
+              </div>
+              <div className="shelf-row">
+                <p>Finished</p>
+                <p className="meta">{shelf.finished.join(', ') || 'No titles yet'}</p>
+              </div>
+            </div>
+          </article>
+
+          <article className="panel">
+            <header className="panel-header">
+              <div>
+                <p className="label">Friends</p>
+                <h3>Tap a friend to view their books</h3>
+              </div>
+              <span className="badge">Social</span>
             </header>
             <ul className="feed-list small">
-              <li>
-                <div className="avatar" aria-hidden="true">
-                  AG
-                </div>
-                <div>
-                  <p className="title">
-                    Amina finished <strong>Afterworld</strong>
-                  </p>
-                  <p className="meta">Rated 4.7 · Just now</p>
-                </div>
-              </li>
-              <li>
-                <div className="avatar" aria-hidden="true">
-                  DL
-                </div>
-                <div>
-                  <p className="title">
-                    Diego started <strong>The Poppy War</strong>
-                  </p>
-                  <p className="meta">Adds to Currently Reading</p>
-                </div>
-              </li>
-              <li>
-                <div className="avatar" aria-hidden="true">
-                  MS
-                </div>
-                <div>
-                  <p className="title">
-                    Mara reviewed <strong>Fourth Wing</strong>
-                  </p>
-                  <p className="meta">“Cliffhanger heaven.”</p>
-                </div>
-              </li>
+              {friendList.length === 0 && <li className="meta">No friends in feed yet.</li>}
+              {friendList.map((friend) => (
+                <li key={friend.user}>
+                  <div className="avatar" aria-hidden="true">
+                    {initials(friend.user)}
+                  </div>
+                  <div>
+                    <p className="title">{friend.user}</p>
+                    <p className="meta">{friend.count} recent books</p>
+                    <div className="tags">
+                      <button
+                        type="button"
+                        className={friend.user === selectedFriend ? 'tab active' : 'tab'}
+                        onClick={() => setSelectedFriend(friend.user)}
+                      >
+                        View shelf
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
             </ul>
           </article>
-          <article className="panel shadow">
-            <header>
+        </section>
+
+        <section className="board">
+          <article className="panel">
+            <header className="panel-header">
               <div>
-                <p className="label">Recommendations</p>
-                <h3>Shifts with every rating</h3>
+                <p className="label">Feed</p>
+                <h3>Latest activity</h3>
               </div>
-              <span className="badge">Adaptive</span>
+              <span className="badge">Live</span>
             </header>
-            <div className="recs-preview">
+            <ul className="feed-list">
+              {feed.length === 0 && <li className="meta">No activity yet.</li>}
+              {feed.map((item, idx) => (
+                <li key={`${item.user}-${item.book}-${idx}`}>
+                  <div className="avatar" aria-hidden="true">
+                    {initials(item.user)}
+                  </div>
+                  <div>
+                    <p className="title">
+                      {item.user} {item.action} <strong>{item.book}</strong>
+                      {item.rating ? ` ${item.rating.toFixed(1)}★` : ''}
+                    </p>
+                    {item.review && <p className="meta">“{item.review}”</p>}
+                    <div className="tags">
+                      <span className="tag">{item.status}</span>
+                      <span className="tag muted">{new Date(item.created_at).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="panel">
+            <header className="panel-header">
               <div>
-                <p className="chip">Because you love novels</p>
-                <h4>Tomorrow, and Tomorrow, and Tomorrow</h4>
-                <p className="meta">Friend picks · 4.8 avg</p>
+                <p className="label">Friend shelf</p>
+                <h3>{selectedFriend ? `${selectedFriend}'s books` : 'Choose a friend'}</h3>
               </div>
-              <div>
-                <p className="chip">Less Fantasy</p>
-                <h4>Station Eleven</h4>
-                <p className="meta">Grounded Sci-Fi · 4.7 avg</p>
-              </div>
+              <span className="badge">Peek</span>
+            </header>
+            {friendBooks.length === 0 && <p className="meta">Select a friend to see their books.</p>}
+            <div className="rec-grid">
+              {friendBooks.map((item, idx) => (
+                <div key={`${item.book}-${idx}`} className="rec-card" onClick={() => setSelectedBook(item.book)}>
+                  <p className="chip">{item.action}</p>
+                  <h4>{item.book}</h4>
+                  {item.rating && <p className="meta">Rating: {item.rating.toFixed(1)}★</p>}
+                  {item.review && <p className="meta">“{item.review}”</p>}
+                </div>
+              ))}
             </div>
           </article>
-        </div>
-      </section>
+        </section>
 
-      <section className="board" id="feed">
-        <article className="panel">
+        <section className="panel stack">
           <header className="panel-header">
             <div>
-              <p className="label">Activity Feed</p>
-              <h3>What friends are doing</h3>
+              <p className="label">Book reviews</p>
+              <h3>{selectedBook ? `Reviews for ${selectedBook}` : 'Select a book to view reviews'}</h3>
             </div>
-            <span className="badge">Live</span>
+            {selectedBook && <span className="badge">Open</span>}
           </header>
+          {bookReviews.length === 0 && <p className="meta">No reviews yet for this book.</p>}
           <ul className="feed-list">
-            <li>
-              <div className="avatar" aria-hidden="true">
-                LC
-              </div>
-              <div>
-                <p className="title">
-                  Luca rated <strong>Divine Rivals</strong> 4.9 ★
-                </p>
-                <p className="meta">“My favorite enemies-to-lovers of the year.”</p>
-                <div className="tags">
-                  <span className="tag">Finished</span>
-                  <span className="tag muted">5m ago</span>
+            {bookReviews.map((review, idx) => (
+              <li key={`${review.user}-${idx}`}>
+                <div className="avatar" aria-hidden="true">
+                  {initials(review.user)}
                 </div>
-              </div>
-            </li>
-            <li>
-              <div className="avatar" aria-hidden="true">
-                NS
-              </div>
-              <div>
-                <p className="title">
-                  Nia started <strong>Before the Coffee Gets Cold</strong>
-                </p>
-                <p className="meta">Moved to Currently Reading</p>
-                <div className="tags">
-                  <span className="tag">Update</span>
-                  <span className="tag muted">14m ago</span>
+                <div>
+                  <p className="title">
+                    {review.user} rated <strong>{review.book}</strong> {review.rating}★
+                  </p>
+                  <p className="meta">“{review.review}”</p>
+                  <div className="tags">
+                    <span className="tag">{review.genre}</span>
+                    <span className="tag muted">{new Date(review.created_at).toLocaleString()}</span>
+                  </div>
                 </div>
-              </div>
-            </li>
-            <li>
-              <div className="avatar" aria-hidden="true">
-                AR
-              </div>
-              <div>
-                <p className="title">
-                  Arjun reviewed <strong>Everything I Never Told You</strong>
-                </p>
-                <p className="meta">“Quietly devastating and hopeful.”</p>
-                <div className="tags">
-                  <span className="tag">Review</span>
-                  <span className="tag muted">21m ago</span>
-                </div>
-              </div>
-            </li>
+              </li>
+            ))}
           </ul>
-        </article>
-
-        <article className="panel" id="shelf">
-          <header className="panel-header">
-            <div>
-              <p className="label">Shelf & History</p>
-              <h3>Always synced with your actions</h3>
-            </div>
-            <span className="badge">Auto</span>
-          </header>
-          <div className="shelf">
-            <div className="shelf-row">
-              <p>Want to Read</p>
-              <div className="progress">
-                <span style={{ width: '62%' }} />
-              </div>
-              <p className="meta">8 titles queued</p>
-            </div>
-            <div className="shelf-row">
-              <p>Currently Reading</p>
-              <div className="progress">
-                <span style={{ width: '45%' }} />
-              </div>
-              <p className="meta">3 in motion</p>
-            </div>
-            <div className="shelf-row">
-              <p>Finished</p>
-              <div className="progress">
-                <span style={{ width: '88%' }} />
-              </div>
-              <p className="meta">42 completed</p>
-            </div>
-          </div>
-          <div className="history">
-            <div className="history-card">
-              <p className="label">This Month</p>
-              <h4>6 books</h4>
-              <p className="meta">You are ahead of pace</p>
-            </div>
-            <div className="history-card">
-              <p className="label">This Year</p>
-              <h4>18 books</h4>
-              <p className="meta">Goal: 36 books</p>
-            </div>
-          </div>
-        </article>
-
-        <article className="panel" id="recommendations">
-          <header className="panel-header">
-            <div>
-              <p className="label">Recommended for You</p>
-              <h3>Adapts to ratings and shelves</h3>
-            </div>
-            <span className="badge">Dynamic</span>
-          </header>
-          <div className="rec-grid">
-            <div className="rec-card">
-              <p className="chip">Novels · Because you rated 4.8★</p>
-              <h4>Tomorrow, and Tomorrow, and Tomorrow</h4>
-              <p className="meta">Friend-favorite · 4.8 avg</p>
-            </div>
-            <div className="rec-card">
-              <p className="chip">Mystery · Because friends finished</p>
-              <h4>The Thursday Murder Club</h4>
-              <p className="meta">Trending in your circle</p>
-            </div>
-            <div className="rec-card">
-              <p className="chip">Less Fantasy</p>
-              <h4>Lessons in Chemistry</h4>
-              <p className="meta">Smart, voicey, no dragons</p>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section className="panel stack" id="reviews">
-        <header className="panel-header">
-          <div>
-            <p className="label">Reviews & Ratings</p>
-            <h3>Share a take, update the feed</h3>
-          </div>
-          <span className="badge">Social</span>
-        </header>
-        <form className="form">
-          <div className="field">
-            <label htmlFor="title">Book title</label>
-            <input id="title" name="title" type="text" placeholder="The Invisible Life of Addie LaRue" />
-          </div>
-          <div className="field">
-            <label htmlFor="rating">Rating</label>
-            <input id="rating" name="rating" type="number" min="1" max="5" step="0.1" defaultValue="4.6" />
-          </div>
-          <div className="field">
-            <label htmlFor="review">Your thoughts</label>
-            <textarea
-              id="review"
-              name="review"
-              rows="3"
-              placeholder="Fast, warm, and impossible to put down—friends should read next."
-            />
-          </div>
-          <button className="primary" type="button">
-            Post review
-          </button>
-        </form>
-        <p className="meta">
-          Posting a review updates the book rating, your shelf, and your friends&apos; feeds automatically.
-        </p>
-      </section>
-    </main>
-  </>
-);
+        </section>
+      </main>
+    </>
+  );
+};
 
 export default App;

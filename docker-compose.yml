@@ -1,12 +1,23 @@
-version: "3.9"
-
 services:
   backend:
     build: ./backend
     ports:
       - "5000:5000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo
+
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./auth-service/.env
     environment:
-      - FLASK_ENV=production
+      - JWT_SECRET=please-change-me
+    depends_on:
+      - mongo
 
   frontend:
     build: ./frontend
@@ -14,3 +25,17 @@ services:
       - "8080:80"
     depends_on:
       - backend
+      - auth-service
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=socialbook
+
+volumes:
+  mongo_data:

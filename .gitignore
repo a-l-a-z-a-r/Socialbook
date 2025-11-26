@@ -1,1 +1,9 @@
 .venv/
+# Local auth service secrets and deps
+auth-service/.env
+auth-service/node_modules/
+
+# MongoDB data directories
+mongo_data/
+mongodb/
+data/db/

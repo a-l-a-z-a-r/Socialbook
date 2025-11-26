@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysite
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysite
+  template:
+    metadata:
+      labels:
+        app: mysite
+    spec:
+      containers:
+        - name: mysite
+          image: your-registry/mysite:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "5000"
+          ports:
+            - containerPort: 5000

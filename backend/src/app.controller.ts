@@ -1,12 +1,13 @@
 import { Body, Controller, Get, HttpException, HttpStatus, Post } from '@nestjs/common';
 import { AppService } from './app.service';
+import { ReviewPayload } from './reviews/reviews.service';
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get('feed')
-  getFeed() {
+  async getFeed() {
     return this.appService.getFeed();
   }
 
@@ -21,12 +22,12 @@ export class AppController {
   }
 
   @Get('reviews')
-  getReviews() {
+  async getReviews() {
     return this.appService.getReviews();
   }
 
   @Post('reviews')
-  createReview(@Body() body: any) {
+  async createReview(@Body() body: ReviewPayload) {
     if (!this.appService.hasRequiredReviewFields(body)) {
       throw new HttpException({ error: 'Missing required fields' }, HttpStatus.BAD_REQUEST);
     }

@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: socialbook
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+  namespace: socialbook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+      volumes:
+        - name: mongo-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: socialbook
+spec:
+  selector:
+    app: mongo
+  ports:
+    - name: mongo
+      port: 27017
+      targetPort: 27017
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: socialbook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: alazar111/socialbook-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MONGODB_URI
+              value: mongodb://mongo:27017/socialbook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: socialbook
+spec:
+  type: NodePort
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      nodePort: 30500
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: socialbook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: alazar111/socialbook-auth-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4000
+          env:
+            - name: JWT_SECRET
+              value: please-change-me
+            - name: PORT
+              value: "4000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: socialbook
+spec:
+  type: NodePort
+  selector:
+    app: auth-service
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+      nodePort: 30400
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: socialbook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: alazar111/socialbook-frontend:neonyellow-202511261431
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: socialbook
+spec:
+  type: NodePort
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 30090

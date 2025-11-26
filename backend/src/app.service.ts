@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Review } from './reviews/review.schema';
+import { ReviewPayload, ReviewsService } from './reviews/reviews.service';
 
 type FeedItem = {
   user: string;
@@ -17,28 +19,11 @@ type Shelf = {
   history: { label: string; finished: number }[];
 };
 
-type Review = {
-  id: number;
-  user: string;
-  book: string;
-  rating: number;
-  review: string;
-  genre: string;
-  created_at: string;
-};
-
-type ReviewPayload = {
-  user?: string;
-  book?: string;
-  rating?: number | string;
-  review?: string;
-  genre?: string;
-  status?: string;
-};
-
 @Injectable()
 export class AppService {
-  private feed: FeedItem[] = [
+  constructor(private readonly reviewsService: ReviewsService) {}
+
+  private feedSeed: FeedItem[] = [
     {
       user: 'Luca',
       action: 'rated',
@@ -84,27 +69,6 @@ export class AppService {
     ],
   };
 
-  private reviews: Review[] = [
-    {
-      id: 1,
-      user: 'Amina',
-      book: 'Afterworld',
-      rating: 4.7,
-      review: 'Sharp, cinematic, and full of wonder.',
-      genre: 'Sci-Fi',
-      created_at: '2024-07-09T14:00:00Z',
-    },
-    {
-      id: 2,
-      user: 'Diego',
-      book: 'Divine Rivals',
-      rating: 4.9,
-      review: 'Romance and war correspondence with heart.',
-      genre: 'Fantasy',
-      created_at: '2024-07-08T10:00:00Z',
-    },
-  ];
-
   private preferenceWeights: Record<string, number> = {
     Novel: 4.8,
     'Sci-Fi': 4.6,
@@ -122,8 +86,15 @@ export class AppService {
     { title: 'The Anthropocene Reviewed', genre: 'Non-Fiction', avg: 4.6 },
   ];
 
-  getFeed() {
-    return { feed: this.feed };
+  async getFeed() {
+    const reviews = await this.reviewsService.findAll();
+    const reviewFeed = reviews.map((review) => this.toFeedItem(review));
+
+    const merged = [...reviewFeed, ...this.feedSeed].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+
+    return { feed: merged };
   }
 
   getShelf() {
@@ -134,42 +105,20 @@ export class AppService {
     return { recommendations: this.personalizedRecommendations() };
   }
 
-  getReviews() {
-    return { reviews: this.reviews };
+  async getReviews() {
+    const reviews = await this.reviewsService.findAll();
+    return { reviews: reviews.map((review) => this.toResponse(review)) };
   }
 
-  addReview(payload: ReviewPayload) {
-    const rating = Number(payload.rating);
-    const createdAt = new Date().toISOString();
-
-    const newReview: Review = {
-      id: this.reviews.length + 1,
-      user: payload.user as string,
-      book: payload.book as string,
-      rating,
-      review: payload.review as string,
-      genre: payload.genre as string,
-      created_at: createdAt,
-    };
-
-    this.reviews.unshift(newReview);
-
-    this.feed.unshift({
-      user: payload.user as string,
-      action: 'reviewed',
-      book: payload.book as string,
-      rating,
-      review: payload.review,
-      status: 'review',
-      created_at: createdAt,
-    });
+  async addReview(payload: ReviewPayload) {
+    const created = await this.reviewsService.create(payload);
 
     if (payload.status === 'finished') {
       this.shelf.finished.push(payload.book as string);
       this.shelf.history.unshift({ label: 'Recent', finished: 1 });
     }
 
-    return newReview;
+    return this.toResponse(created);
   }
 
   hasRequiredReviewFields(payload: ReviewPayload) {
@@ -203,5 +152,35 @@ export class AppService {
       return 'Dialed down because you rate Fantasy lower';
     }
     return `Because you rate ${genre} highly`;
+  }
+
+  private toFeedItem(review: Review): FeedItem {
+    return {
+      user: review.user,
+      action: 'reviewed',
+      book: review.book,
+      rating: review.rating,
+      review: review.review,
+      status: review.status ?? 'review',
+      created_at: this.formatCreatedAt(review.created_at),
+    };
+  }
+
+  private toResponse(review: Review) {
+    return {
+      id: (review as any)._id?.toString?.() ?? undefined,
+      user: review.user,
+      book: review.book,
+      rating: review.rating,
+      review: review.review,
+      genre: review.genre,
+      created_at: this.formatCreatedAt(review.created_at),
+    };
+  }
+
+  private formatCreatedAt(value: unknown) {
+    if (typeof value === 'string') return value;
+    if (value instanceof Date) return value.toISOString();
+    return new Date().toISOString();
   }
 }
