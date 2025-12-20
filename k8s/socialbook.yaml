@@ -74,14 +74,12 @@ metadata:
   name: backend
   namespace: socialbook
 spec:
-  type: NodePort
   selector:
     app: backend
   ports:
     - name: http
       port: 5000
       targetPort: 5000
-      nodePort: 30500
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -111,11 +109,9 @@ metadata:
   name: frontend
   namespace: socialbook
 spec:
-  type: NodePort
   selector:
     app: frontend
   ports:
     - name: http
       port: 80
       targetPort: 80
-      nodePort: 30090
