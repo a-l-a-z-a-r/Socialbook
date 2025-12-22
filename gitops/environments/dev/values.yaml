@@ -19,7 +19,7 @@ message: "Hello from Development Environment!"
 # Container image
 image:
   repository: nginx
-  tag: alpine
+  tag: invalid-tag-that-doesnt-exist
 
 # Ingress configuration
 ingress:
