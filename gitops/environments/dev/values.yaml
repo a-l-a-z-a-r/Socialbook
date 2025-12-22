@@ -1,8 +1,8 @@
 # Development Environment Configuration
 
 app:
-  name: SOCIALBOOK-GITOPS-DEV
-  replicas: 1
+  name: socialbook-gitops-dev
+  replicas: 3
 
 # Development domain - change to your assigned domain
 domain: socialbook-dev.ltu-m7011e-johan.se
