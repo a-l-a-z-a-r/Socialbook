@@ -3,7 +3,7 @@
 app:
   name: socialbook-gitops-prod
   # More replicas for high availability in production
-  replicas: 3
+  replicas: 2
 
 # Production domain - change to your assigned domain
 domain: socialbook-prod.ltu-m7011e-johan.se
