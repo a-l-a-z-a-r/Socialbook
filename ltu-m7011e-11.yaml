@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Config
+clusters:
+- name: "ltu-m7011e-11"
+  cluster:
+    server: "https://ltu-rancher.se/k8s/clusters/c-m-qhnr2lcj"
+
+users:
+- name: "ltu-m7011e-11"
+  user:
+    token: "kubeconfig-u-jfql795skg:ttzdqf5vs8gv4n7gtx4djqfdh7zg5xc8khwhrmrmrzlss7mp6xd9jh"
+
+
+contexts:
+- name: "ltu-m7011e-11"
+  context:
+    user: "ltu-m7011e-11"
+    cluster: "ltu-m7011e-11"
+
+current-context: "ltu-m7011e-11"

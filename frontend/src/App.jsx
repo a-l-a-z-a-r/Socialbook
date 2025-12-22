@@ -7,6 +7,8 @@ const apiUrl = (path) => {
   return `${base}${path}`;
 };
 
+const AUTH_DISABLED = false;
+
 const keyFor = (item) => `${item.user ?? 'anon'}-${item.book ?? 'untitled'}-${item.created_at ?? ''}`;
 const keepWithCover = (items = []) =>
   items.filter((item) => item?.coverUrl && typeof item.coverUrl === 'string' && item.coverUrl.trim() !== '');
@@ -29,6 +31,13 @@ const App = () => {
   const [feed, setFeed] = useState([]);
 
   useEffect(() => {
+    if (AUTH_DISABLED) {
+      setAuthenticated(true);
+      setUser({ email: 'guest@socialbook', name: 'Guest' });
+      setKeycloakReady(true);
+      return;
+    }
+
     const init = async () => {
       try {
         const pkceMethod = window?.isSecureContext && window?.crypto?.subtle ? 'S256' : false;
@@ -67,6 +76,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    if (AUTH_DISABLED) return;
     if (!authenticated) return;
     const interval = setInterval(() => {
       keycloak
@@ -83,7 +93,7 @@ const App = () => {
   }, [authenticated]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token && !AUTH_DISABLED) return;
     const load = async () => {
       setDataLoading(true);
       try {
@@ -108,10 +118,12 @@ const App = () => {
   const handleLogout = () => {
     setUser(null);
     setFeed([]);
-    keycloak.logout({ redirectUri: window.location.origin });
+    if (!AUTH_DISABLED) {
+      keycloak.logout({ redirectUri: window.location.origin });
+    }
   };
 
-  if (!keycloakReady) {
+  if (!keycloakReady && !AUTH_DISABLED) {
     return (
       <main className="auth-shell">
         <p className="meta">Connecting to Sign-In...</p>
@@ -119,7 +131,7 @@ const App = () => {
     );
   }
 
-  if (!authenticated || !user) {
+  if ((!authenticated || !user) && !AUTH_DISABLED) {
     return (
       <main className="auth-shell">
         <p className="meta">Redirecting to Keycloak...</p>

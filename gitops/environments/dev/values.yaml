@@ -1,0 +1,27 @@
+# Development Environment Configuration
+
+app:
+  name: socialbook-gitops-dev
+  replicas: 3
+
+# Development domain - change to your assigned domain
+domain: socialbook-dev.ltu-m7011e-johan.se
+
+# Email for Let's Encrypt certificates
+email: alabel-1@student.ltu.se
+
+# Environment identifier
+environment: Development
+
+# Custom message for this environment
+message: "Hello from Development Environment!"
+
+# Container image
+image:
+  repository: nginx
+  tag: invalid-tag-that-doesnt-exist
+
+# Ingress configuration
+ingress:
+  # Use staging for testing to avoid rate limits
+  certIssuer: letsencrypt-staging
