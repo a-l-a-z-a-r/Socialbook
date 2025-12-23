@@ -60,7 +60,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: alazar111/socialbook-
+          image: alazar111/socialbook-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
@@ -98,10 +98,19 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: alazar111/socialbook-frontend:neonyellow-202511261431
+          image: alazar111/socialbook-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
+          env:
+            - name: VITE_KEYCLOAK_URL
+              value: https://keycloak.46-62-130-16.nip.io
+            - name: VITE_KEYCLOAK_REALM
+              value: socialbook
+            - name: VITE_KEYCLOAK_CLIENT_ID
+              value: socialbook-frontend
+            - name: VITE_API_BASE
+              value: http://api.socialbook.46-62-130-16.nip.io
 ---
 apiVersion: v1
 kind: Service
