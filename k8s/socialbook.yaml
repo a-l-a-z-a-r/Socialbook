@@ -104,7 +104,7 @@ spec:
             - containerPort: 80
           env:
             - name: VITE_KEYCLOAK_URL
-              value: https://keycloak.ltu-m7011e-japan.se
+              value: https://keycloak.46-62-130-16.nip.io
             - name: VITE_KEYCLOAK_REALM
               value: socialbook
             - name: VITE_KEYCLOAK_CLIENT_ID
