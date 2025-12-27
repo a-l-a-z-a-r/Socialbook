@@ -32,7 +32,10 @@ const probeImage = (url, timeoutMs = 5000) =>
       resolve(ok);
     };
     const timer = setTimeout(() => finish(false), timeoutMs);
-    img.onload = () => finish(true);
+    img.onload = () => {
+      const validSize = img.naturalWidth > 8 && img.naturalHeight > 8;
+      finish(validSize);
+    };
     img.onerror = () => finish(false);
     img.src = url;
   });
