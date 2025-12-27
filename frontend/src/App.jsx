@@ -7,8 +7,42 @@ const apiUrl = (path) => {
 };
 
 const keyFor = (item) => `${item.user ?? 'anon'}-${item.book ?? 'untitled'}-${item.created_at ?? ''}`;
+const normalizeCoverUrl = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '';
+  return trimmed;
+};
+
 const keepWithCover = (items = []) =>
-  items.filter((item) => item?.coverUrl && typeof item.coverUrl === 'string' && item.coverUrl.trim() !== '');
+  items
+    .map((item) => ({ ...item, coverUrl: normalizeCoverUrl(item?.coverUrl) }))
+    .filter((item) => item.coverUrl);
+
+const probeImage = (url, timeoutMs = 5000) =>
+  new Promise((resolve) => {
+    const img = new Image();
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      img.onload = null;
+      img.onerror = null;
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+    img.src = url;
+  });
+
+const filterLiveCovers = async (items = []) => {
+  const checks = await Promise.all(
+    items.map(async (item) => ((await probeImage(item.coverUrl)) ? item : null)),
+  );
+  return checks.filter(Boolean);
+};
 
 const initials = (name = '') =>
   name
@@ -29,7 +63,8 @@ const App = () => {
       try {
         const feedRes = await fetch(apiUrl('/feed')).then((r) => r.json());
         const feedData = keepWithCover(feedRes?.feed ?? []);
-        setFeed(feedData);
+        const liveOnly = await filterLiveCovers(feedData);
+        setFeed(liveOnly);
       } catch (err) {
         console.error('Failed to load data', err);
       } finally {

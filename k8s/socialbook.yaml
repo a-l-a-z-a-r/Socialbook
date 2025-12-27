@@ -105,7 +105,7 @@ spec:
             - containerPort: 80
           env:
             - name: VITE_API_BASE
-              value: https://api.socialbook.46-62-130-16.nip.io/api
+              value: /api
 ---
 apiVersion: v1
 kind: Service
