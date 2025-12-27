@@ -60,7 +60,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: alazar111/socialbook-backend:latest
+          image: alazar111/socialbook-backend:backend-9df29935d9661d379fe25707f215dc3e97f5bf4c
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
