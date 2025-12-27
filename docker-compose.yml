@@ -9,7 +9,7 @@ services:
       - mongo
 
   frontend:
-    build: ./frontend
+    image: alazar111/socialbook-frontend:keycloakintegrationchanges10
     ports:
       - "8080:80"
       - "8443:443"
