@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://api.socialbook.46-62-130-16.nip.io/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://api.socialbook.46-62-130-16.nip.io/api';
 const apiUrl = (path) => {
   const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
   return `${base}${path}`;
