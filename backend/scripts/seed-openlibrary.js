@@ -9,13 +9,7 @@
  * - Inserts up to 500 review documents into the `reviews` collection.
  */
 
-// Prefer a local dependency when available; fall back to backend node_modules.
-let MongoClient;
-try {
-  ({ MongoClient } = require('mongodb'));
-} catch (err) {
-  ({ MongoClient } = require('../backend/node_modules/mongodb'));
-}
+const { MongoClient } = require('mongodb');
 const https = require('https');
 
 function fetchJson(url) {
