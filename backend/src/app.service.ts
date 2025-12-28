@@ -24,9 +24,6 @@ type Shelf = {
 export class AppService {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  private readonly coverTimeoutMs = this.readNumberEnv(process.env.COVER_TIMEOUT_MS, 5000);
-  private readonly coverBatchSize = this.readNumberEnv(process.env.COVER_CHECK_BATCH, 5);
-
   private shelf: Shelf = {
     want_to_read: [
       'The Heaven & Earth Grocery Store',
@@ -66,8 +63,7 @@ export class AppService {
   async getFeed() {
     const reviews = await this.reviewsService.findAll();
     const reviewFeed = reviews.map((review) => this.toFeedItem(review));
-    const filtered = await this.filterFeedByCover(reviewFeed);
-    return { feed: filtered };
+    return { feed: reviewFeed };
   }
 
   getShelf() {
@@ -159,83 +155,5 @@ export class AppService {
     return new Date().toISOString();
   }
 
-  private readNumberEnv(value: string | undefined, fallback: number) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-  }
 
-  private async filterFeedByCover(items: FeedItem[]) {
-    const kept: FeedItem[] = [];
-
-    for (let i = 0; i < items.length; i += this.coverBatchSize) {
-      const batch = items.slice(i, i + this.coverBatchSize);
-      const results = await Promise.all(
-        batch.map(async (item) => {
-          if (!item.coverUrl) return null;
-          const ok = await this.isCoverAlive(item.coverUrl);
-          return ok ? item : null;
-        }),
-      );
-      kept.push(...results.filter((item): item is FeedItem => Boolean(item)));
-    }
-
-    return kept;
-  }
-
-  private async isCoverAlive(url: string) {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      return false;
-    }
-
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return false;
-    }
-
-    if (typeof fetch !== 'function') {
-      return true;
-    }
-
-    const headOk = await this.checkCoverHead(url);
-    if (headOk !== null) {
-      return headOk;
-    }
-
-    return this.checkCoverGet(url);
-  }
-
-  private async checkCoverHead(url: string) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.coverTimeoutMs);
-
-    try {
-      const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
-      if (res.status === 200) return true;
-      if (res.status === 405 || res.status === 501) return null;
-      return false;
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  private async checkCoverGet(url: string) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.coverTimeoutMs);
-
-    try {
-      const res = await fetch(url, {
-        method: 'GET',
-        signal: controller.signal,
-      });
-      return res.status === 200;
-    } catch {
-      return false;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
 }
