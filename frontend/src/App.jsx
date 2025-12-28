@@ -7,17 +7,6 @@ const apiUrl = (path) => {
 };
 
 const keyFor = (item) => `${item.user ?? 'anon'}-${item.book ?? 'untitled'}-${item.created_at ?? ''}`;
-const normalizeCoverUrl = (value) => {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '';
-  return trimmed;
-};
-
-const keepWithCover = (items = []) =>
-  items
-    .map((item) => ({ ...item, coverUrl: normalizeCoverUrl(item?.coverUrl) }))
-    .filter((item) => item.coverUrl);
 
 const initials = (name = '') =>
   name
@@ -109,8 +98,7 @@ const App = () => {
       setDataLoading(true);
       try {
         const feedRes = await fetch(apiUrl('/feed')).then((r) => r.json());
-        const feedData = keepWithCover(feedRes?.feed ?? []);
-        setFeed(feedData);
+        setFeed(feedRes?.feed ?? []);
       } catch (err) {
         console.error('Failed to load data', err);
       } finally {
