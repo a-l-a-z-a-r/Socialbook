@@ -104,7 +104,7 @@ export class AppService {
   }
 
   health() {
-    return { status: 'ok', time: new Date().toISOString() };
+    return { status: 'ok', time: new Date().toISOString(), build: 'backend-deploy-check' };
   }
 
   private personalizedRecommendations(limit = 5) {
