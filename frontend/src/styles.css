@@ -109,6 +109,12 @@ main { width: min(1200px, 94vw); margin: 32px auto 0; display: flex; flex-direct
 
 .actions { display: flex; gap: 12px; margin-top: 16px; }
 
+.load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
 .quick-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .pill { background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(58, 134, 255, 0.35); padding: 8px 12px; border-radius: 999px; color: #1a0f24; }
 

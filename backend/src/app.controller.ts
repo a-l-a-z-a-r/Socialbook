@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Post, Query } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ReviewPayload } from './reviews/reviews.service';
 
@@ -7,8 +7,11 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get('feed')
-  async getFeed() {
-    return this.appService.getFeed();
+  async getFeed(@Query('offset') offset?: string, @Query('limit') limit?: string) {
+    return this.appService.getFeed(
+      offset !== undefined ? Number(offset) : undefined,
+      limit !== undefined ? Number(limit) : undefined,
+    );
   }
 
   @Get('shelf')

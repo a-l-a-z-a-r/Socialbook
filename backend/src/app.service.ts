@@ -28,6 +28,8 @@ export class AppService {
   private readonly coverTimeoutMs = this.readNumberEnv(process.env.COVER_TIMEOUT_MS, 5000);
   private readonly coverBatchSize = this.readNumberEnv(process.env.COVER_CHECK_BATCH, 5);
   private readonly coverProbeBytes = this.readNumberEnv(process.env.COVER_PROBE_BYTES, 16384);
+  private readonly feedPageSize = this.readNumberEnv(process.env.FEED_PAGE_SIZE, 20);
+  private readonly feedPageMax = this.readNumberEnv(process.env.FEED_PAGE_MAX, 50);
 
   private shelf: Shelf = {
     want_to_read: [
@@ -65,11 +67,17 @@ export class AppService {
     { title: 'The Anthropocene Reviewed', genre: 'Non-Fiction', avg: 4.6 },
   ];
 
-  async getFeed() {
+  async getFeed(offset = 0, limit = this.feedPageSize) {
     const reviews = await this.reviewsService.findAll();
     const reviewFeed = reviews.map((review) => this.toFeedItem(review));
-    const filtered = await this.filterFeedByCover(reviewFeed);
-    return { feed: filtered };
+    const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : this.feedPageSize;
+    const cappedLimit = Math.min(safeLimit, this.feedPageMax);
+    const pageItems = reviewFeed.slice(safeOffset, safeOffset + cappedLimit);
+    const filtered = await this.filterFeedByCover(pageItems);
+    const hasMore = safeOffset + cappedLimit < reviewFeed.length;
+    const nextOffset = safeOffset + cappedLimit;
+    return { feed: filtered, nextOffset, hasMore, total: reviewFeed.length };
   }
 
   getShelf() {
