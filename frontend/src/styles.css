@@ -20,9 +20,7 @@
 body {
   margin: 0;
   font-family: var(--font);
-  background: conic-gradient(from 120deg at 20% 20%, rgba(255, 0, 110, 0.85), rgba(255, 190, 11, 0.85), rgba(58, 134, 255, 0.85), rgba(6, 214, 160, 0.85), rgba(255, 0, 110, 0.85)),
-              radial-gradient(120% 140% at 82% 18%, rgba(255, 86, 7, 0.8), transparent 62%),
-              linear-gradient(135deg, var(--bg) 0%, var(--bg-alt) 100%);
+  background: #0b0b10;
   color: var(--text);
   min-height: 100vh;
   padding-bottom: 64px;
@@ -32,26 +30,19 @@ body {
 
 body::before,
 body::after {
-  content: "";
-  position: fixed;
-  inset: -20vh -10vw;
-  z-index: -1;
-  background:
-    radial-gradient(40% 40% at 15% 25%, rgba(58, 134, 255, 0.55), transparent 58%),
-    radial-gradient(45% 45% at 70% 15%, rgba(255, 0, 110, 0.5), transparent 62%),
-    radial-gradient(35% 35% at 75% 80%, rgba(6, 214, 160, 0.5), transparent 60%);
-  filter: blur(8px) saturate(1.35);
-  opacity: 0.9;
-  animation: conjecture-drift 18s ease-in-out infinite, color-tilt 9s linear infinite;
-  pointer-events: none;
+  display: none;
 }
 
-body::after {
-  background:
-    conic-gradient(from 40deg at 50% 50%, rgba(255, 190, 11, 0.45), rgba(255, 86, 7, 0.4), rgba(58, 134, 255, 0.4), rgba(6, 214, 160, 0.4), rgba(255, 0, 110, 0.45)),
-    radial-gradient(45% 45% at 30% 70%, rgba(255, 0, 110, 0.35), transparent 62%);
-  mix-blend-mode: multiply;
-  animation: conjecture-sheen 14s linear infinite, color-tilt 7s ease-in-out infinite reverse;
+body::after { display: none; }
+
+.mandelbrot-bg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -2;
+  opacity: 0.95;
+  image-rendering: auto;
 }
 
 h1, h2, h3, h4 { color: var(--text); margin: 0; letter-spacing: -0.02em; }
