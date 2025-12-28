@@ -29,6 +29,35 @@ const isJpegUrl = (value) => {
 
 const isGifUrl = (value) => getPathname(value).endsWith('.gif');
 
+const COVER_TIMEOUT_MS = 5000;
+
+const probeCoverType = async (url) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), COVER_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-1023' },
+      signal: controller.signal,
+    });
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (contentType.includes('image/gif')) return false;
+    if (contentType.includes('image/jpeg')) return true;
+    return false;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const filterNonGifCovers = async (items = []) => {
+  const checks = await Promise.all(
+    items.map(async (item) => ((await probeCoverType(item.coverUrl)) ? item : null)),
+  );
+  return checks.filter(Boolean);
+};
+
 const keepWithCover = (items = []) =>
   items
     .map((item) => ({ ...item, coverUrl: normalizeCoverUrl(item?.coverUrl) }))
@@ -53,7 +82,8 @@ const App = () => {
       try {
         const feedRes = await fetch(apiUrl('/feed')).then((r) => r.json());
         const feedData = keepWithCover(feedRes?.feed ?? []);
-        setFeed(feedData);
+        const jpegOnly = await filterNonGifCovers(feedData);
+        setFeed(jpegOnly);
       } catch (err) {
         console.error('Failed to load data', err);
       } finally {
