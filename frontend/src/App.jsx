@@ -19,36 +19,6 @@ const keepWithCover = (items = []) =>
     .map((item) => ({ ...item, coverUrl: normalizeCoverUrl(item?.coverUrl) }))
     .filter((item) => item.coverUrl);
 
-const MIN_COVER_BYTES = 2048;
-const COVER_TIMEOUT_MS = 5000;
-
-const probeCover = async (url) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), COVER_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { method: 'GET', signal: controller.signal });
-    if (res.status !== 200) return false;
-    const lengthHeader = res.headers.get('content-length');
-    if (lengthHeader) {
-      const length = Number(lengthHeader);
-      return Number.isFinite(length) && length >= MIN_COVER_BYTES;
-    }
-    const buffer = await res.arrayBuffer();
-    return buffer.byteLength >= MIN_COVER_BYTES;
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
-const filterLiveCovers = async (items = []) => {
-  const checks = await Promise.all(
-    items.map(async (item) => ((await probeCover(item.coverUrl)) ? item : null)),
-  );
-  return checks.filter(Boolean);
-};
-
 const initials = (name = '') =>
   name
     .split(' ')
@@ -68,8 +38,7 @@ const App = () => {
       try {
         const feedRes = await fetch(apiUrl('/feed')).then((r) => r.json());
         const feedData = keepWithCover(feedRes?.feed ?? []);
-        const liveOnly = await filterLiveCovers(feedData);
-        setFeed(liveOnly);
+        setFeed(feedData);
       } catch (err) {
         console.error('Failed to load data', err);
       } finally {
