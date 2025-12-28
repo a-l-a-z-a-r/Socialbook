@@ -167,24 +167,52 @@ export class AppService {
   }
 
   private async filterFeedByCover(items: FeedItem[]) {
+    const failOpenTimeoutMs = this.readNumberEnv(
+      process.env.COVER_FAIL_OPEN_MS,
+      this.coverTimeoutMs * 4,
+    );
+    const failOpenTimer = this.createFailOpenTimer<FeedItem[]>(items, failOpenTimeoutMs);
+
     const kept: FeedItem[] = [];
 
     for (let i = 0; i < items.length; i += this.coverBatchSize) {
       const batch = items.slice(i, i + this.coverBatchSize);
-      const results = await Promise.all(
-        batch.map(async (item) => {
-          if (!item.coverUrl) return null;
-          const ok = await this.isCoverAlive(item.coverUrl);
-          if (!ok) {
-            console.warn('[cover-filter] dropped', item.coverUrl);
-          }
-          return ok ? item : null;
-        }),
-      );
-      kept.push(...results.filter((item): item is FeedItem => Boolean(item)));
+      const results = await Promise.race([
+        Promise.all(
+          batch.map(async (item) => {
+            if (!item.coverUrl) return null;
+            const ok = await this.isCoverAlive(item.coverUrl);
+            if (!ok) {
+              console.warn('[cover-filter] dropped', item.coverUrl);
+            }
+            return ok ? item : null;
+          }),
+        ),
+        failOpenTimer.promise,
+      ]);
+      if (Array.isArray(results)) {
+        kept.push(...results.filter((item): item is FeedItem => Boolean(item)));
+      } else {
+        return results;
+      }
     }
 
     return kept;
+  }
+
+  private createFailOpenTimer<T>(value: T, timeoutMs: number) {
+    let resolveFn: ((value: T | PromiseLike<T>) => void) | null = null;
+    const promise = new Promise<T>((resolve) => {
+      resolveFn = resolve;
+    });
+    const timeout = setTimeout(() => {
+      console.warn('[cover-filter] fail-open after timeout');
+      resolveFn?.(value);
+    }, timeoutMs);
+    return {
+      promise,
+      cancel: () => clearTimeout(timeout),
+    };
   }
 
   private async isCoverAlive(url: string) {
