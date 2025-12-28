@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Review } from './reviews/review.schema';
 import { ReviewPayload, ReviewsService } from './reviews/reviews.service';
 
@@ -83,17 +83,6 @@ export class AppService {
   }
 
   async addReview(payload: ReviewPayload) {
-    if (payload.coverUrl) {
-      const ok = await this.reviewsService.isCoverValid(
-        payload.coverUrl,
-        this.coverMinBytes,
-        this.coverMinDimension,
-      );
-      if (!ok) {
-        await this.reviewsService.deleteByCoverUrl(payload.coverUrl);
-        throw new BadRequestException('Invalid cover image');
-      }
-    }
     const created = await this.reviewsService.create(payload);
 
     if (payload.status === 'finished') {
