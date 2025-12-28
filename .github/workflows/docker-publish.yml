@@ -41,3 +41,29 @@ jobs:
           tags: |
             ${{ env.DOCKERHUB_USERNAME }}/socialbook-frontend:frontend-${{ github.sha }}
             ${{ env.DOCKERHUB_USERNAME }}/socialbook-frontend:latest
+
+      - name: Update ArgoCD manifest image tags
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          backend_tag = "backend-${{ github.sha }}"
+          frontend_tag = "frontend-${{ github.sha }}"
+          backend_image = f"${{ env.DOCKERHUB_USERNAME }}/socialbook-backend:{backend_tag}"
+          frontend_image = f"${{ env.DOCKERHUB_USERNAME }}/socialbook-frontend:{frontend_tag}"
+
+          path = Path("k8s/socialbook.yaml")
+          data = path.read_text()
+          data = re.sub(r"(image:\s+).*/socialbook-backend:[^\s]+", rf"\\1{backend_image}", data)
+          data = re.sub(r"(image:\s+).*/socialbook-frontend:[^\s]+", rf"\\1{frontend_image}", data)
+          path.write_text(data)
+          PY
+
+      - name: Commit manifest updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/socialbook.yaml
+          git commit -m "chore: bump images to ${{ github.sha }}" || exit 0
+          git push
