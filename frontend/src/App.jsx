@@ -14,10 +14,15 @@ const normalizeCoverUrl = (value) => {
   return trimmed;
 };
 
+const isJpegUrl = (value) => {
+  const lower = value.toLowerCase();
+  return lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+};
+
 const keepWithCover = (items = []) =>
   items
     .map((item) => ({ ...item, coverUrl: normalizeCoverUrl(item?.coverUrl) }))
-    .filter((item) => item.coverUrl);
+    .filter((item) => item.coverUrl && isJpegUrl(item.coverUrl));
 
 const initials = (name = '') =>
   name
