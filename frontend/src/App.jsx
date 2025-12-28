@@ -14,15 +14,25 @@ const normalizeCoverUrl = (value) => {
   return trimmed;
 };
 
-const isJpegUrl = (value) => {
-  const lower = value.toLowerCase();
-  return lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+const getPathname = (value) => {
+  try {
+    return new URL(value).pathname.toLowerCase();
+  } catch {
+    return value.split('?')[0].toLowerCase();
+  }
 };
+
+const isJpegUrl = (value) => {
+  const path = getPathname(value);
+  return path.endsWith('.jpg') || path.endsWith('.jpeg');
+};
+
+const isGifUrl = (value) => getPathname(value).endsWith('.gif');
 
 const keepWithCover = (items = []) =>
   items
     .map((item) => ({ ...item, coverUrl: normalizeCoverUrl(item?.coverUrl) }))
-    .filter((item) => item.coverUrl && isJpegUrl(item.coverUrl));
+    .filter((item) => item.coverUrl && isJpegUrl(item.coverUrl) && !isGifUrl(item.coverUrl));
 
 const initials = (name = '') =>
   name
