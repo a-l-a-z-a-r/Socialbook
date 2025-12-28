@@ -20,6 +20,8 @@ const App = () => {
   const canvasRef = useRef(null);
   const user = { email: 'guest@socialbook', name: 'Guest' };
   const [feed, setFeed] = useState([]);
+  const [backendBuild, setBackendBuild] = useState('unknown');
+  const [backendCheckedAt, setBackendCheckedAt] = useState('');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -105,6 +107,20 @@ const App = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    const loadHealth = async () => {
+      try {
+        const healthRes = await fetch(apiUrl('/health')).then((r) => r.json());
+        setBackendBuild(healthRes?.build || 'unknown');
+        setBackendCheckedAt(new Date().toLocaleTimeString());
+      } catch (err) {
+        console.error('Failed to load backend health', err);
+      }
+    };
+
+    loadHealth();
+  }, []);
+
   const handleImageError = (badKey) => {
     setFeed((prev) =>
       prev.map((item) => (keyFor(item) === badKey ? { ...item, coverUrl: null } : item)),
@@ -122,6 +138,11 @@ const App = () => {
         <div className="nav">
           <span className="badge success">Guest</span>
           <span className="meta">{user?.email}</span>
+          <span className="backend-status">
+            <span className="backend-label">Backend</span>
+            <span className="backend-tag">{backendBuild}</span>
+            {backendCheckedAt && <span className="backend-time">Checked {backendCheckedAt}</span>}
+          </span>
         </div>
       </header>
 

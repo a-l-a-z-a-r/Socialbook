@@ -69,6 +69,8 @@ spec:
           env:
             - name: MONGODB_URI
               value: mongodb://mongo:27017/socialbook
+            - name: BACKEND_IMAGE_TAG
+              value: backend-20240310-abc123
 ---
 apiVersion: v1
 kind: Service

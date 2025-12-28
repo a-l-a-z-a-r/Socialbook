@@ -26,6 +26,8 @@ export class AppService {
 
   private readonly coverMinBytes = this.readNumberEnv(process.env.COVER_MIN_BYTES, 2048);
   private readonly coverMinDimension = this.readNumberEnv(process.env.COVER_MIN_DIMENSION, 2);
+  private readonly buildTag =
+    process.env.BACKEND_IMAGE_TAG ?? process.env.BUILD_TAG ?? 'unknown';
 
   private shelf: Shelf = {
     want_to_read: [
@@ -101,7 +103,7 @@ export class AppService {
   }
 
   health() {
-    return { status: 'ok', time: new Date().toISOString(), build: 'backend-deploy-check' };
+    return { status: 'ok', time: new Date().toISOString(), build: this.buildTag };
   }
 
   private personalizedRecommendations(limit = 5) {
