@@ -6,7 +6,6 @@ const apiUrl = (path) => {
   return `${base}${path}`;
 };
 
-const PAGE_SIZE = 20;
 const keyFor = (item) => `${item.user ?? 'anon'}-${item.book ?? 'untitled'}-${item.created_at ?? ''}`;
 const normalizeCoverUrl = (value) => {
   if (typeof value !== 'string') return '';
@@ -31,11 +30,8 @@ const initials = (name = '') =>
 const App = () => {
   const canvasRef = useRef(null);
   const [dataLoading, setDataLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const user = { email: 'guest@socialbook', name: 'Guest' };
   const [feed, setFeed] = useState([]);
-  const [nextOffset, setNextOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -108,23 +104,13 @@ const App = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const loadFeed = async (offset, append) => {
-    const params = new URLSearchParams({
-      offset: String(offset ?? 0),
-      limit: String(PAGE_SIZE),
-    });
-    const feedRes = await fetch(apiUrl(`/feed?${params.toString()}`)).then((r) => r.json());
-    const feedData = keepWithCover(feedRes?.feed ?? []);
-    setFeed((prev) => (append ? [...prev, ...feedData] : feedData));
-    setNextOffset(Number(feedRes?.nextOffset ?? 0));
-    setHasMore(Boolean(feedRes?.hasMore));
-  };
-
   useEffect(() => {
     const load = async () => {
       setDataLoading(true);
       try {
-        await loadFeed(0, false);
+        const feedRes = await fetch(apiUrl('/feed')).then((r) => r.json());
+        const feedData = keepWithCover(feedRes?.feed ?? []);
+        setFeed(feedData);
       } catch (err) {
         console.error('Failed to load data', err);
       } finally {
@@ -134,18 +120,6 @@ const App = () => {
 
     load();
   }, []);
-
-  const handleLoadMore = async () => {
-    if (!hasMore || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      await loadFeed(nextOffset, true);
-    } catch (err) {
-      console.error('Failed to load more data', err);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
 
   const handleImageError = (badKey) => {
     setFeed((prev) => prev.filter((item) => keyFor(item) !== badKey));
@@ -214,13 +188,6 @@ const App = () => {
                 );
               })}
             </ul>
-          )}
-          {hasMore && (
-            <div className="load-more">
-              <button className="ghost" type="button" onClick={handleLoadMore} disabled={loadingMore}>
-                {loadingMore ? 'Loading…' : 'Load more'}
-              </button>
-            </div>
           )}
         </section>
       </main>

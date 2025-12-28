@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Review } from './reviews/review.schema';
 import { ReviewPayload, ReviewsService } from './reviews/reviews.service';
 
@@ -25,11 +25,7 @@ export class AppService {
   constructor(private readonly reviewsService: ReviewsService) {}
 
   private readonly coverMinBytes = this.readNumberEnv(process.env.COVER_MIN_BYTES, 2048);
-  private readonly coverTimeoutMs = this.readNumberEnv(process.env.COVER_TIMEOUT_MS, 5000);
-  private readonly coverBatchSize = this.readNumberEnv(process.env.COVER_CHECK_BATCH, 5);
-  private readonly coverProbeBytes = this.readNumberEnv(process.env.COVER_PROBE_BYTES, 16384);
-  private readonly feedPageSize = this.readNumberEnv(process.env.FEED_PAGE_SIZE, 20);
-  private readonly feedPageMax = this.readNumberEnv(process.env.FEED_PAGE_MAX, 50);
+  private readonly coverMinDimension = this.readNumberEnv(process.env.COVER_MIN_DIMENSION, 2);
 
   private shelf: Shelf = {
     want_to_read: [
@@ -67,17 +63,10 @@ export class AppService {
     { title: 'The Anthropocene Reviewed', genre: 'Non-Fiction', avg: 4.6 },
   ];
 
-  async getFeed(offset = 0, limit = this.feedPageSize) {
+  async getFeed() {
     const reviews = await this.reviewsService.findAll();
     const reviewFeed = reviews.map((review) => this.toFeedItem(review));
-    const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : this.feedPageSize;
-    const cappedLimit = Math.min(safeLimit, this.feedPageMax);
-    const pageItems = reviewFeed.slice(safeOffset, safeOffset + cappedLimit);
-    const filtered = await this.filterFeedByCover(pageItems);
-    const hasMore = safeOffset + cappedLimit < reviewFeed.length;
-    const nextOffset = safeOffset + cappedLimit;
-    return { feed: filtered, nextOffset, hasMore, total: reviewFeed.length };
+    return { feed: reviewFeed };
   }
 
   getShelf() {
@@ -94,6 +83,17 @@ export class AppService {
   }
 
   async addReview(payload: ReviewPayload) {
+    if (payload.coverUrl) {
+      const ok = await this.reviewsService.isCoverValid(
+        payload.coverUrl,
+        this.coverMinBytes,
+        this.coverMinDimension,
+      );
+      if (!ok) {
+        await this.reviewsService.deleteByCoverUrl(payload.coverUrl);
+        throw new BadRequestException('Invalid cover image');
+      }
+    }
     const created = await this.reviewsService.create(payload);
 
     if (payload.status === 'finished') {
@@ -172,241 +172,6 @@ export class AppService {
   private readNumberEnv(value: string | undefined, fallback: number) {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-  }
-
-  private async filterFeedByCover(items: FeedItem[]) {
-    const failOpenTimeoutMs = this.readNumberEnv(
-      process.env.COVER_FAIL_OPEN_MS,
-      this.coverTimeoutMs * 4,
-    );
-    const failOpenTimer = this.createFailOpenTimer<FeedItem[]>(items, failOpenTimeoutMs);
-
-    const kept: FeedItem[] = [];
-
-    for (let i = 0; i < items.length; i += this.coverBatchSize) {
-      const batch = items.slice(i, i + this.coverBatchSize);
-      const results = await Promise.race([
-        Promise.all(
-          batch.map(async (item) => {
-            if (!item.coverUrl) return null;
-            const ok = await this.isCoverAlive(item.coverUrl);
-            if (!ok) {
-              console.warn('[cover-filter] dropped', item.coverUrl);
-            }
-            return ok ? item : null;
-          }),
-        ),
-        failOpenTimer.promise,
-      ]);
-      if (Array.isArray(results)) {
-        kept.push(...results.filter((item): item is FeedItem => Boolean(item)));
-      } else {
-        return results;
-      }
-    }
-
-    return kept;
-  }
-
-  private createFailOpenTimer<T>(value: T, timeoutMs: number) {
-    let resolveFn: ((value: T | PromiseLike<T>) => void) | null = null;
-    const promise = new Promise<T>((resolve) => {
-      resolveFn = resolve;
-    });
-    const timeout = setTimeout(() => {
-      console.warn('[cover-filter] fail-open after timeout');
-      resolveFn?.(value);
-    }, timeoutMs);
-    return {
-      promise,
-      cancel: () => clearTimeout(timeout),
-    };
-  }
-
-  private async isCoverAlive(url: string) {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      return false;
-    }
-
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return false;
-    }
-
-    if (typeof fetch !== 'function') {
-      return true;
-    }
-
-    const headOk = await this.checkCoverHead(url);
-    if (headOk !== null) {
-      return headOk;
-    }
-
-    return this.checkCoverGet(url);
-  }
-
-  private async checkCoverHead(url: string) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.coverTimeoutMs);
-
-    try {
-      const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
-      if (res.status === 405 || res.status === 501) return null;
-      const contentType = res.headers.get('content-type');
-      if (contentType && !this.isImageContentType(contentType)) {
-        console.warn('[cover-filter] head content-type reject', url, contentType);
-        return false;
-      }
-      const lengthHeader = res.headers.get('content-length');
-      if (!lengthHeader) return null;
-      const length = Number(lengthHeader);
-      if (!Number.isFinite(length)) return null;
-      if (length < this.coverMinBytes) {
-        console.warn('[cover-filter] head size reject', url, length);
-        return false;
-      }
-      return null;
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  private async checkCoverGet(url: string) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.coverTimeoutMs);
-
-    try {
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: { Range: `bytes=0-${this.coverProbeBytes - 1}` },
-        signal: controller.signal,
-      });
-      const contentType = res.headers.get('content-type');
-      if (contentType && !this.isImageContentType(contentType)) {
-        console.warn('[cover-filter] get content-type reject', url, contentType);
-        return false;
-      }
-      const buffer = await res.arrayBuffer();
-      const sizeOk = this.isMinBytes(buffer, res.headers.get('content-length'));
-      if (!sizeOk) {
-        console.warn('[cover-filter] get size reject', url, buffer.byteLength);
-        return false;
-      }
-      const dimensions = this.getImageDimensions(buffer);
-      if (!dimensions) {
-        console.warn('[cover-filter] get dimensions missing', url);
-        return false;
-      }
-      if (dimensions.width <= 1 || dimensions.height <= 1) {
-        console.warn('[cover-filter] get dimensions reject', url, dimensions);
-        return false;
-      }
-      return true;
-    } catch {
-      return false;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  private isImageContentType(value: string) {
-    const normalized = value.toLowerCase();
-    if (!normalized.startsWith('image/')) return false;
-    if (normalized.includes('image/gif')) return false;
-    return true;
-  }
-
-  private isMinBytes(buffer: ArrayBuffer, lengthHeader: string | null) {
-    if (lengthHeader) {
-      const length = Number(lengthHeader);
-      if (Number.isFinite(length)) {
-        return length >= this.coverMinBytes;
-      }
-    }
-    return buffer.byteLength >= this.coverMinBytes;
-  }
-
-  private getImageDimensions(buffer: ArrayBuffer) {
-    const data = new Uint8Array(buffer);
-    if (data.length < 10) return null;
-
-    // PNG
-    if (
-      data.length >= 24 &&
-      data[0] === 0x89 &&
-      data[1] === 0x50 &&
-      data[2] === 0x4e &&
-      data[3] === 0x47 &&
-      data[4] === 0x0d &&
-      data[5] === 0x0a &&
-      data[6] === 0x1a &&
-      data[7] === 0x0a
-    ) {
-      const width = this.readUint32BE(data, 16);
-      const height = this.readUint32BE(data, 20);
-      if (width && height) return { width, height };
-      return null;
-    }
-
-    // GIF
-    if (
-      data.length >= 10 &&
-      data[0] === 0x47 &&
-      data[1] === 0x49 &&
-      data[2] === 0x46
-    ) {
-      const width = data[6] | (data[7] << 8);
-      const height = data[8] | (data[9] << 8);
-      if (width && height) return { width, height };
-      return null;
-    }
-
-    // JPEG
-    if (data[0] === 0xff && data[1] === 0xd8) {
-      let offset = 2;
-      while (offset + 3 < data.length) {
-        if (data[offset] !== 0xff) {
-          offset += 1;
-          continue;
-        }
-        const marker = data[offset + 1];
-        const isSof =
-          (marker >= 0xc0 && marker <= 0xc3) ||
-          (marker >= 0xc5 && marker <= 0xc7) ||
-          (marker >= 0xc9 && marker <= 0xcb) ||
-          (marker >= 0xcd && marker <= 0xcf);
-        const length = this.readUint16BE(data, offset + 2);
-        if (!length || offset + 2 + length > data.length) break;
-        if (isSof) {
-          const height = this.readUint16BE(data, offset + 5);
-          const width = this.readUint16BE(data, offset + 7);
-          if (width && height) return { width, height };
-          return null;
-        }
-        offset += 2 + length;
-      }
-    }
-
-    return null;
-  }
-
-  private readUint16BE(data: Uint8Array, offset: number) {
-    if (offset + 1 >= data.length) return 0;
-    return (data[offset] << 8) | data[offset + 1];
-  }
-
-  private readUint32BE(data: Uint8Array, offset: number) {
-    if (offset + 3 >= data.length) return 0;
-    return (
-      (data[offset] << 24) |
-      (data[offset + 1] << 16) |
-      (data[offset + 2] << 8) |
-      data[offset + 3]
-    ) >>> 0;
   }
 
 }
