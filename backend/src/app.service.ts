@@ -27,6 +27,7 @@ export class AppService {
   private readonly coverMinBytes = this.readNumberEnv(process.env.COVER_MIN_BYTES, 2048);
   private readonly coverTimeoutMs = this.readNumberEnv(process.env.COVER_TIMEOUT_MS, 5000);
   private readonly coverBatchSize = this.readNumberEnv(process.env.COVER_CHECK_BATCH, 5);
+  private readonly coverProbeBytes = this.readNumberEnv(process.env.COVER_PROBE_BYTES, 16384);
 
   private shelf: Shelf = {
     want_to_read: [
@@ -214,11 +215,13 @@ export class AppService {
     try {
       const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
       if (res.status === 405 || res.status === 501) return null;
+      const contentType = res.headers.get('content-type');
+      if (contentType && !this.isImageContentType(contentType)) return false;
       const lengthHeader = res.headers.get('content-length');
       if (!lengthHeader) return null;
       const length = Number(lengthHeader);
       if (!Number.isFinite(length)) return null;
-      return length >= this.coverMinBytes;
+      return length < this.coverMinBytes ? false : null;
     } catch {
       return null;
     } finally {
@@ -233,16 +236,115 @@ export class AppService {
     try {
       const res = await fetch(url, {
         method: 'GET',
-        headers: { Range: `bytes=0-${this.coverMinBytes - 1}` },
+        headers: { Range: `bytes=0-${this.coverProbeBytes - 1}` },
         signal: controller.signal,
       });
+      const contentType = res.headers.get('content-type');
+      if (contentType && !this.isImageContentType(contentType)) return false;
       const buffer = await res.arrayBuffer();
-      return buffer.byteLength >= this.coverMinBytes;
+      const sizeOk = this.isMinBytes(buffer, res.headers.get('content-length'));
+      if (!sizeOk) return false;
+      const dimensions = this.getImageDimensions(buffer);
+      if (!dimensions) return false;
+      return dimensions.width > 1 && dimensions.height > 1;
     } catch {
       return false;
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private isImageContentType(value: string) {
+    return value.toLowerCase().startsWith('image/');
+  }
+
+  private isMinBytes(buffer: ArrayBuffer, lengthHeader: string | null) {
+    if (lengthHeader) {
+      const length = Number(lengthHeader);
+      if (Number.isFinite(length)) {
+        return length >= this.coverMinBytes;
+      }
+    }
+    return buffer.byteLength >= this.coverMinBytes;
+  }
+
+  private getImageDimensions(buffer: ArrayBuffer) {
+    const data = new Uint8Array(buffer);
+    if (data.length < 10) return null;
+
+    // PNG
+    if (
+      data.length >= 24 &&
+      data[0] === 0x89 &&
+      data[1] === 0x50 &&
+      data[2] === 0x4e &&
+      data[3] === 0x47 &&
+      data[4] === 0x0d &&
+      data[5] === 0x0a &&
+      data[6] === 0x1a &&
+      data[7] === 0x0a
+    ) {
+      const width = this.readUint32BE(data, 16);
+      const height = this.readUint32BE(data, 20);
+      if (width && height) return { width, height };
+      return null;
+    }
+
+    // GIF
+    if (
+      data.length >= 10 &&
+      data[0] === 0x47 &&
+      data[1] === 0x49 &&
+      data[2] === 0x46
+    ) {
+      const width = data[6] | (data[7] << 8);
+      const height = data[8] | (data[9] << 8);
+      if (width && height) return { width, height };
+      return null;
+    }
+
+    // JPEG
+    if (data[0] === 0xff && data[1] === 0xd8) {
+      let offset = 2;
+      while (offset + 3 < data.length) {
+        if (data[offset] !== 0xff) {
+          offset += 1;
+          continue;
+        }
+        const marker = data[offset + 1];
+        const isSof =
+          (marker >= 0xc0 && marker <= 0xc3) ||
+          (marker >= 0xc5 && marker <= 0xc7) ||
+          (marker >= 0xc9 && marker <= 0xcb) ||
+          (marker >= 0xcd && marker <= 0xcf);
+        const length = this.readUint16BE(data, offset + 2);
+        if (!length || offset + 2 + length > data.length) break;
+        if (isSof) {
+          const height = this.readUint16BE(data, offset + 5);
+          const width = this.readUint16BE(data, offset + 7);
+          if (width && height) return { width, height };
+          return null;
+        }
+        offset += 2 + length;
+      }
+    }
+
+    return null;
+  }
+
+  private readUint16BE(data: Uint8Array, offset: number) {
+    if (offset + 1 >= data.length) return 0;
+    return (data[offset] << 8) | data[offset + 1];
+  }
+
+  private readUint32BE(data: Uint8Array, offset: number) {
+    if (offset + 3 >= data.length) return 0;
+    return (
+      (data[offset] << 24) |
+      (data[offset + 1] << 16) |
+      (data[offset + 2] << 8) |
+      data[offset + 3]
+    ) >>> 0;
   }
 
 }
