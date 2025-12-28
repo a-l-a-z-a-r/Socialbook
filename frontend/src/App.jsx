@@ -26,13 +26,16 @@ const probeCover = async (url) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), COVER_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    const res = await fetch(url, { method: 'GET', signal: controller.signal });
     if (res.status !== 200) return false;
     const lengthHeader = res.headers.get('content-length');
-    if (!lengthHeader) return false;
-    const length = Number(lengthHeader);
-    return Number.isFinite(length) && length >= MIN_COVER_BYTES;
-  } catch (err) {
+    if (lengthHeader) {
+      const length = Number(lengthHeader);
+      return Number.isFinite(length) && length >= MIN_COVER_BYTES;
+    }
+    const buffer = await res.arrayBuffer();
+    return buffer.byteLength >= MIN_COVER_BYTES;
+  } catch {
     return false;
   } finally {
     clearTimeout(timeout);
