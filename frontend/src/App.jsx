@@ -29,6 +29,7 @@ const isJpegUrl = (value) => {
 
 const isGifUrl = (value) => getPathname(value).endsWith('.gif');
 
+const MIN_COVER_BYTES = 2048;
 const COVER_TIMEOUT_MS = 5000;
 
 const probeCoverType = async (url) => {
@@ -37,13 +38,19 @@ const probeCoverType = async (url) => {
   try {
     const res = await fetch(url, {
       method: 'GET',
-      headers: { Range: 'bytes=0-1023' },
+      headers: { Range: `bytes=0-${MIN_COVER_BYTES - 1}` },
       signal: controller.signal,
     });
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
     if (contentType.includes('image/gif')) return false;
-    if (contentType.includes('image/jpeg')) return true;
-    return false;
+    if (!contentType.includes('image/jpeg')) return false;
+    const lengthHeader = res.headers.get('content-length');
+    if (lengthHeader) {
+      const length = Number(lengthHeader);
+      return Number.isFinite(length) && length >= MIN_COVER_BYTES;
+    }
+    const buffer = await res.arrayBuffer();
+    return buffer.byteLength >= MIN_COVER_BYTES;
   } catch {
     return false;
   } finally {
