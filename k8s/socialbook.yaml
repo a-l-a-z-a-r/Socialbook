@@ -62,7 +62,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: alazar111/socialbook-backend:backend-20240310-abc123
+          image: alazar111/socialbook-backend:backend-9d51eb0c411368fda43b602dfab632287e2ec4ed
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
@@ -70,7 +70,7 @@ spec:
             - name: MONGODB_URI
               value: mongodb://mongo:27017/socialbook
             - name: BACKEND_IMAGE_TAG
-              value: backend-20240310-abc123
+              value: backend-9d51eb0c411368fda43b602dfab632287e2ec4ed
 ---
 apiVersion: v1
 kind: Service
