@@ -18,7 +18,6 @@ const initials = (name = '') =>
 
 const App = () => {
   const canvasRef = useRef(null);
-  const [dataLoading, setDataLoading] = useState(false);
   const user = { email: 'guest@socialbook', name: 'Guest' };
   const [feed, setFeed] = useState([]);
 
@@ -95,14 +94,11 @@ const App = () => {
 
   useEffect(() => {
     const load = async () => {
-      setDataLoading(true);
       try {
         const feedRes = await fetch(apiUrl('/feed')).then((r) => r.json());
         setFeed(feedRes?.feed ?? []);
       } catch (err) {
         console.error('Failed to load data', err);
-      } finally {
-        setDataLoading(false);
       }
     };
 
@@ -136,14 +132,9 @@ const App = () => {
               <p className="label">Books</p>
               <h3>Latest feed</h3>
             </div>
-            {dataLoading && <span className="badge">Updating</span>}
           </header>
           {feed.length === 0 ? (
-            <div className="placeholder-grid">
-              {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={idx} className="placeholder-card" />
-              ))}
-            </div>
+            <p className="empty-state">No reviews yet.</p>
           ) : (
             <ul className="feed-list books-list">
               {feed.map((item) => {
