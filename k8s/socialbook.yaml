@@ -63,7 +63,6 @@ spec:
       containers:
         - name: backend
           image: alazar111/socialbook-backend:latest
-
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
@@ -104,7 +103,6 @@ spec:
       containers:
         - name: frontend
           image: alazar111/socialbook-frontend:latest
-
           imagePullPolicy: Always
           ports:
             - containerPort: 80
