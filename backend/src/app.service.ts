@@ -175,6 +175,9 @@ export class AppService {
         batch.map(async (item) => {
           if (!item.coverUrl) return null;
           const ok = await this.isCoverAlive(item.coverUrl);
+          if (!ok) {
+            console.warn('[cover-filter] dropped', item.coverUrl);
+          }
           return ok ? item : null;
         }),
       );
@@ -216,12 +219,19 @@ export class AppService {
       const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
       if (res.status === 405 || res.status === 501) return null;
       const contentType = res.headers.get('content-type');
-      if (contentType && !this.isImageContentType(contentType)) return false;
+      if (contentType && !this.isImageContentType(contentType)) {
+        console.warn('[cover-filter] head content-type reject', url, contentType);
+        return false;
+      }
       const lengthHeader = res.headers.get('content-length');
       if (!lengthHeader) return null;
       const length = Number(lengthHeader);
       if (!Number.isFinite(length)) return null;
-      return length < this.coverMinBytes ? false : null;
+      if (length < this.coverMinBytes) {
+        console.warn('[cover-filter] head size reject', url, length);
+        return false;
+      }
+      return null;
     } catch {
       return null;
     } finally {
@@ -240,13 +250,26 @@ export class AppService {
         signal: controller.signal,
       });
       const contentType = res.headers.get('content-type');
-      if (contentType && !this.isImageContentType(contentType)) return false;
+      if (contentType && !this.isImageContentType(contentType)) {
+        console.warn('[cover-filter] get content-type reject', url, contentType);
+        return false;
+      }
       const buffer = await res.arrayBuffer();
       const sizeOk = this.isMinBytes(buffer, res.headers.get('content-length'));
-      if (!sizeOk) return false;
+      if (!sizeOk) {
+        console.warn('[cover-filter] get size reject', url, buffer.byteLength);
+        return false;
+      }
       const dimensions = this.getImageDimensions(buffer);
-      if (!dimensions) return false;
-      return dimensions.width > 1 && dimensions.height > 1;
+      if (!dimensions) {
+        console.warn('[cover-filter] get dimensions missing', url);
+        return false;
+      }
+      if (dimensions.width <= 1 || dimensions.height <= 1) {
+        console.warn('[cover-filter] get dimensions reject', url, dimensions);
+        return false;
+      }
+      return true;
     } catch {
       return false;
     } finally {
