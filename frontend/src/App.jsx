@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 const apiUrl = (path) => {
@@ -28,9 +28,81 @@ const initials = (name = '') =>
     .toUpperCase();
 
 const App = () => {
+  const canvasRef = useRef(null);
   const [dataLoading, setDataLoading] = useState(false);
   const user = { email: 'guest@socialbook', name: 'Guest' };
   const [feed, setFeed] = useState([]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const drawMandelbrot = () => {
+      const width = Math.floor(window.innerWidth);
+      const height = Math.floor(window.innerHeight);
+      const scale = 0.6;
+      const renderWidth = Math.max(320, Math.floor(width * scale));
+      const renderHeight = Math.max(240, Math.floor(height * scale));
+
+      canvas.width = renderWidth;
+      canvas.height = renderHeight;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      const image = ctx.createImageData(renderWidth, renderHeight);
+      const maxIter = 80;
+      const zoom = 1.35;
+      const centerX = -0.6;
+      const centerY = 0.0;
+      const aspect = renderWidth / renderHeight;
+
+      for (let y = 0; y < renderHeight; y += 1) {
+        for (let x = 0; x < renderWidth; x += 1) {
+          const cx = (x / renderWidth - 0.5) * 3.2 * zoom * aspect + centerX;
+          const cy = (y / renderHeight - 0.5) * 3.2 * zoom + centerY;
+          let zx = 0;
+          let zy = 0;
+          let iter = 0;
+          while (zx * zx + zy * zy <= 4 && iter < maxIter) {
+            const xt = zx * zx - zy * zy + cx;
+            zy = 2 * zx * zy + cy;
+            zx = xt;
+            iter += 1;
+          }
+
+          const idx = (y * renderWidth + x) * 4;
+          if (iter === maxIter) {
+            image.data[idx] = 10;
+            image.data[idx + 1] = 6;
+            image.data[idx + 2] = 16;
+            image.data[idx + 3] = 255;
+          } else {
+            const t = iter / maxIter;
+            const r = Math.floor(24 + 230 * Math.pow(t, 0.6));
+            const g = Math.floor(18 + 120 * Math.pow(t, 1.4));
+            const b = Math.floor(60 + 200 * Math.pow(t, 0.8));
+            image.data[idx] = r;
+            image.data[idx + 1] = g;
+            image.data[idx + 2] = b;
+            image.data[idx + 3] = 255;
+          }
+        }
+      }
+
+      ctx.putImageData(image, 0, 0);
+    };
+
+    const handleResize = () => {
+      drawMandelbrot();
+    };
+
+    drawMandelbrot();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -55,6 +127,7 @@ const App = () => {
 
   return (
     <>
+      <canvas ref={canvasRef} className="mandelbrot-bg" aria-hidden="true" />
       <header className="topbar">
         <div className="brand">
           <span className="spark" />
