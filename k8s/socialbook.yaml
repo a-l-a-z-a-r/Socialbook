@@ -58,7 +58,7 @@ spec:
       labels:
         app: backend
       annotations:
-        \1\"bf020f3ab3172161a2ceaa4dd91100442c461278\"
+        app.kubernetes.io/version: "latest"
     spec:
       containers:
         - name: backend
@@ -98,13 +98,11 @@ spec:
       labels:
         app: frontend
       annotations:
-        \1\"bf020f3ab3172161a2ceaa4dd91100442c461278\"
+        app.kubernetes.io/version: "latest"
     spec:
       containers:
         - name: frontend
           image: alazar111/socialbook-frontend:latest
-
-
           imagePullPolicy: Always
           ports:
             - containerPort: 80
