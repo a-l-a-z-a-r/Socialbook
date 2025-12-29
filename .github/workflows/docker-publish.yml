@@ -48,9 +48,9 @@ jobs:
           from pathlib import Path
           import re
 
-          backend_image = f"${{ env.DOCKERHUB_USERNAME }}/socialbook-backend:latest"
-          frontend_image = f"${{ env.DOCKERHUB_USERNAME }}/socialbook-frontend:latest"
           version = "${{ github.sha }}"
+          backend_image = f"${{ env.DOCKERHUB_USERNAME }}/socialbook-backend:backend-{version}"
+          frontend_image = f"${{ env.DOCKERHUB_USERNAME }}/socialbook-frontend:frontend-{version}"
 
           path = Path("k8s/socialbook.yaml")
           data = path.read_text()
