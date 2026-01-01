@@ -13,6 +13,7 @@ async function bootstrap() {
       'http://socialbook.46-62-130-16.nip.io',
       'https://socialbook.46-62-130-16.nip.io',
     ],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   const port = process.env.PORT || 5000;
