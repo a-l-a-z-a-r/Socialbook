@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { getKeycloak } from './keycloak';
+import { hasKeycloakConfig } from './keycloak-config';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 const apiUrl = (path) => {
@@ -7,6 +9,25 @@ const apiUrl = (path) => {
 };
 
 const keyFor = (item) => `${item.user ?? 'anon'}-${item.book ?? 'untitled'}-${item.created_at ?? ''}`;
+
+const authFetch = async (path, token) => {
+  if (!token) {
+    throw new Error('Missing access token');
+  }
+
+  const response = await fetch(apiUrl(path), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed: ${response.status}`);
+  }
+
+  return response.json();
+};
 
 const initials = (name = '') =>
   name
@@ -18,7 +39,10 @@ const initials = (name = '') =>
 
 const App = () => {
   const canvasRef = useRef(null);
-  const user = { email: 'guest@socialbook', name: 'Guest' };
+  const initAuthRef = useRef(false);
+  const [authState, setAuthState] = useState({ loading: true, authenticated: false });
+  const [profile, setProfile] = useState(null);
+  const [authError, setAuthError] = useState('');
   const [feed, setFeed] = useState([]);
 
   useEffect(() => {
@@ -93,23 +117,88 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const feedRes = await fetch(apiUrl('/feed')).then((r) => r.json());
-        setFeed(feedRes?.feed ?? []);
-      } catch (err) {
-        console.error('Failed to load data', err);
-      }
-    };
+    if (!hasKeycloakConfig()) {
+      setAuthError(
+        'Missing Keycloak configuration. Set VITE_KEYCLOAK_URL, VITE_KEYCLOAK_REALM, and VITE_KEYCLOAK_CLIENT_ID.',
+      );
+      setAuthState({ loading: false, authenticated: false });
+      return;
+    }
 
-    load();
+    if (initAuthRef.current) {
+      return;
+    }
+    initAuthRef.current = true;
+
+    const keycloak = getKeycloak();
+
+    keycloak
+      .init({
+        onLoad: 'login-required',
+        checkLoginIframe: false,
+      })
+      .then((authenticated) => {
+        setAuthState({ loading: false, authenticated });
+        if (!authenticated) return;
+
+        keycloak
+          .loadUserProfile()
+          .then((profileData) => {
+            setProfile(profileData);
+          })
+          .catch(() => {
+            setAuthError('Unable to load user profile.');
+          });
+
+        loadFeed();
+      })
+      .catch((err) => {
+        console.error('Keycloak initialization error:', err);
+        setAuthError('Failed to initialize authentication.');
+        setAuthState({ loading: false, authenticated: false });
+      });
+
+    const refreshInterval = setInterval(() => {
+      if (!keycloak.authenticated) return;
+      keycloak
+        .updateToken(70)
+        .catch(() => {
+          setAuthError('Session expired. Please log in again.');
+        });
+    }, 60000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
+
+  const loadFeed = async () => {
+    try {
+      const keycloak = getKeycloak();
+      await keycloak.updateToken(70);
+      const feedRes = await authFetch('/feed', keycloak.token);
+      setFeed(feedRes?.feed ?? []);
+      setAuthError('');
+    } catch (err) {
+      console.error('Failed to load data', err);
+      setAuthError(err.message || 'Failed to load feed.');
+    }
+  };
+
+  const handleLogout = () => {
+    getKeycloak().logout();
+  };
 
   const handleImageError = (badKey) => {
     setFeed((prev) =>
       prev.map((item) => (keyFor(item) === badKey ? { ...item, coverUrl: null } : item)),
     );
   };
+
+  const displayName =
+    profile?.firstName || profile?.lastName
+      ? `${profile?.firstName ?? ''} ${profile?.lastName ?? ''}`.trim()
+      : profile?.username || 'Reader';
+  const statusLabel = authState.authenticated ? 'Online' : 'Signed out';
+  const hasConfig = hasKeycloakConfig();
 
   return (
     <>
@@ -120,58 +209,109 @@ const App = () => {
           <span className="wordmark">Socialbook</span>
         </div>
         <div className="nav">
-          <span className="badge success">Guest</span>
-          <span className="meta">{user?.email}</span>
+          <span className={`badge ${authState.authenticated ? 'success' : ''}`}>{statusLabel}</span>
+          {authState.authenticated && (
+            <>
+              <span className="meta">{displayName}</span>
+              <button className="ghost" type="button" onClick={handleLogout}>
+                Logout
+              </button>
+            </>
+          )}
         </div>
       </header>
 
-      <main>
-        <section className="panel stack">
-          <header className="panel-header">
-            <div>
-              <p className="label">Books</p>
-              <h3>Latest feed</h3>
+      {authState.loading ? (
+        <main className="auth-shell">
+          <section className="auth-hero">
+            <div className="hero-copy">
+              <p className="label">Authenticating</p>
+              <h1>Syncing your Socialbook</h1>
+              <p className="lede">Waiting for Keycloak to finish the handshake.</p>
             </div>
-          </header>
-          {feed.length === 0 ? (
-            <p className="empty-state">No reviews yet.</p>
-          ) : (
-            <ul className="feed-list books-list">
-              {feed.map((item) => {
-                const itemKey = keyFor(item);
-                return (
-                  <li key={itemKey}>
-                    {item.coverUrl ? (
-                      <div className="cover-thumb" aria-hidden="true">
-                        <img
-                          src={item.coverUrl}
-                          alt={item.book}
-                          loading="lazy"
-                          onError={() => handleImageError(itemKey)}
-                        />
+          </section>
+        </main>
+      ) : !authState.authenticated ? (
+        <main className="auth-shell">
+          <section className="auth-hero">
+            <div className="hero-copy">
+              <p className="label">Sign in required</p>
+              <h1>Welcome back to Socialbook</h1>
+              <p className="lede">
+                Log in with your Keycloak account to see your personalized reading feed.
+              </p>
+              {authError && <p className="empty-state">{authError}</p>}
+              <div className="actions">
+                {hasConfig && (
+                  <button className="cta" type="button" onClick={() => getKeycloak().login()}>
+                    Login with Keycloak
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="panel shadow">
+              <p className="label">Status</p>
+              <h3>Not authenticated</h3>
+              <p className="meta">
+                Configure Keycloak in `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, and
+                `VITE_KEYCLOAK_CLIENT_ID`.
+              </p>
+            </div>
+          </section>
+        </main>
+      ) : (
+        <main>
+          <section className="panel stack">
+            <header className="panel-header">
+              <div>
+                <p className="label">Books</p>
+                <h3>Latest feed</h3>
+              </div>
+              <div className="meta">{profile?.email}</div>
+            </header>
+            {authError && <p className="empty-state">{authError}</p>}
+            {feed.length === 0 ? (
+              <p className="empty-state">No reviews yet.</p>
+            ) : (
+              <ul className="feed-list books-list">
+                {feed.map((item) => {
+                  const itemKey = keyFor(item);
+                  return (
+                    <li key={itemKey}>
+                      {item.coverUrl ? (
+                        <div className="cover-thumb" aria-hidden="true">
+                          <img
+                            src={item.coverUrl}
+                            alt={item.book}
+                            loading="lazy"
+                            onError={() => handleImageError(itemKey)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="avatar" aria-hidden="true">
+                          {initials(item.user)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="title">
+                          <strong>{item.book}</strong>
+                        </p>
+                        <div className="tags">
+                          {item.user && <span className="tag">{item.user}</span>}
+                          {item.rating && (
+                            <span className="tag muted">{item.rating.toFixed(1)}★</span>
+                          )}
+                          {item.status && <span className="tag muted">{item.status}</span>}
+                        </div>
                       </div>
-                    ) : (
-                      <div className="avatar" aria-hidden="true">
-                        {initials(item.user)}
-                      </div>
-                    )}
-                    <div>
-                      <p className="title">
-                        <strong>{item.book}</strong>
-                      </p>
-                      <div className="tags">
-                        {item.user && <span className="tag">{item.user}</span>}
-                        {item.rating && <span className="tag muted">{item.rating.toFixed(1)}★</span>}
-                        {item.status && <span className="tag muted">{item.status}</span>}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </main>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </main>
+      )}
     </>
   );
 };
