@@ -4,6 +4,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
+  app.use((req, res, next) => {
+    res.setHeader('X-Neon', new Date().toISOString());
+    next();
+  });
   app.enableCors({
     origin: [
       'http://localhost:8080',
@@ -14,6 +18,7 @@ async function bootstrap() {
       'https://socialbook.46-62-130-16.nip.io',
     ],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['X-Neon'],
   });
 
   const port = process.env.PORT || 5000;
