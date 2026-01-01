@@ -69,6 +69,12 @@ spec:
           env:
             - name: MONGODB_URI
               value: mongodb://mongo:27017/socialbook
+            - name: KEYCLOAK_URL
+              value: https://keycloak.ltu-m7011e-11.se
+            - name: KEYCLOAK_REALM
+              value: Userenter
+            - name: KEYCLOAK_AUDIENCE
+              value: socialbook
             - name: BACKEND_IMAGE_TAG
               value: backend-9d51eb0c411368fda43b602dfab632287e2ec4ed
 ---
@@ -111,6 +117,12 @@ spec:
           env:
             - name: VITE_API_BASE
               value: /api
+            - name: VITE_KEYCLOAK_URL
+              value: https://keycloak.ltu-m7011e-11.se
+            - name: VITE_KEYCLOAK_REALM
+              value: Userenter
+            - name: VITE_KEYCLOAK_CLIENT_ID
+              value: socialbook
 ---
 apiVersion: v1
 kind: Service
