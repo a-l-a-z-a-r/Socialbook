@@ -134,7 +134,7 @@ const App = () => {
 
     keycloak
       .init({
-        onLoad: 'login-required',
+        onLoad: 'check-sso',
         checkLoginIframe: false,
       })
       .then((authenticated) => {
@@ -181,6 +181,14 @@ const App = () => {
       console.error('Failed to load data', err);
       setAuthError(err.message || 'Failed to load feed.');
     }
+  };
+
+  const handleLogin = () => {
+    const keycloak = getKeycloak();
+    keycloak.login({
+      idpHint: 'github',
+      redirectUri: window.location.href,
+    });
   };
 
   const handleLogout = () => {
@@ -243,8 +251,8 @@ const App = () => {
               {authError && <p className="empty-state">{authError}</p>}
               <div className="actions">
                 {hasConfig && (
-                  <button className="cta" type="button" onClick={() => getKeycloak().login()}>
-                    Login with Keycloak
+                  <button className="cta" type="button" onClick={handleLogin}>
+                    Continue with GitHub
                   </button>
                 )}
               </div>
