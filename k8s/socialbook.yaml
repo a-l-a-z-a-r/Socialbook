@@ -73,6 +73,12 @@ spec:
               value: https://keycloak.ltu-m7011e-11.se
             - name: KEYCLOAK_REALM
               value: Userenter
+            - name: KEYCLOAK_ADMIN_CLIENT_ID
+              value: socialbook-admin
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              value: Q5kcOEPkC2guAT5yKPJgnc7FPNmIROje
+            - name: KEYCLOAK_PUBLIC_CLIENT_ID
+              value: socialbook
             - name: BACKEND_IMAGE_TAG
               value: latest
 ---
