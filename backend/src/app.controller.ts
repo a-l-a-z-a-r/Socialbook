@@ -6,10 +6,7 @@ import { KeycloakAdminService } from './auth/keycloak-admin.service';
 
 type SignupPayload = {
   username: string;
-  email: string;
   password: string;
-  firstName?: string;
-  lastName?: string;
 };
 
 @Controller()
@@ -55,8 +52,8 @@ export class AppController {
 
   @Post('signup')
   async signup(@Body() body: SignupPayload) {
-    const { username, email, password } = body || {};
-    if (!username || !email || !password) {
+    const { username, password } = body || {};
+    if (!username || !password) {
       throw new HttpException({ error: 'Missing required fields' }, HttpStatus.BAD_REQUEST);
     }
 
