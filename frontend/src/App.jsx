@@ -257,14 +257,6 @@ const App = () => {
                 )}
               </div>
             </div>
-            <div className="panel shadow">
-              <p className="label">Status</p>
-              <h3>Not authenticated</h3>
-              <p className="meta">
-                Configure Keycloak in `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, and
-                `VITE_KEYCLOAK_CLIENT_ID`.
-              </p>
-            </div>
           </section>
         </main>
       ) : (
