@@ -47,10 +47,7 @@ const App = () => {
   const [signupState, setSignupState] = useState({ loading: false, error: '', success: false });
   const [signupForm, setSignupForm] = useState({
     username: '',
-    email: '',
     password: '',
-    firstName: '',
-    lastName: '',
   });
 
   useEffect(() => {
@@ -199,6 +196,11 @@ const App = () => {
     });
   };
 
+  const handleKeycloakLogin = () => {
+    const keycloak = getKeycloak();
+    keycloak.login({ redirectUri: window.location.href });
+  };
+
   const handleLogout = () => {
     getKeycloak().logout();
   };
@@ -283,9 +285,14 @@ const App = () => {
               {authError && <p className="empty-state">{authError}</p>}
               <div className="actions">
                 {hasConfig && (
-                  <button className="cta" type="button" onClick={handleLogin}>
-                    Continue with GitHub
-                  </button>
+                  <>
+                    <button className="cta" type="button" onClick={handleLogin}>
+                      Continue with GitHub
+                    </button>
+                    <button className="ghost" type="button" onClick={handleKeycloakLogin}>
+                      Sign in with username & password
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -305,17 +312,6 @@ const App = () => {
                   />
                 </label>
                 <label className="field">
-                  <span className="meta">Email</span>
-                  <input
-                    name="email"
-                    type="email"
-                    value={signupForm.email}
-                    onChange={handleSignupChange}
-                    autoComplete="email"
-                    required
-                  />
-                </label>
-                <label className="field">
                   <span className="meta">Password</span>
                   <input
                     name="password"
@@ -324,24 +320,6 @@ const App = () => {
                     onChange={handleSignupChange}
                     autoComplete="new-password"
                     required
-                  />
-                </label>
-                <label className="field">
-                  <span className="meta">First name</span>
-                  <input
-                    name="firstName"
-                    value={signupForm.firstName}
-                    onChange={handleSignupChange}
-                    autoComplete="given-name"
-                  />
-                </label>
-                <label className="field">
-                  <span className="meta">Last name</span>
-                  <input
-                    name="lastName"
-                    value={signupForm.lastName}
-                    onChange={handleSignupChange}
-                    autoComplete="family-name"
                   />
                 </label>
                 {signupState.error && <p className="empty-state">{signupState.error}</p>}

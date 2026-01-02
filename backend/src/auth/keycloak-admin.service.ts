@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import https from 'https';
+import type { IncomingHttpHeaders } from 'http';
 
 type SignupPayload = {
   username: string;
-  email: string;
   password: string;
-  firstName?: string;
-  lastName?: string;
 };
 
 type KeycloakConfig = {
@@ -47,9 +45,6 @@ export class KeycloakAdminService {
 
     const body = JSON.stringify({
       username: payload.username,
-      email: payload.email,
-      firstName: payload.firstName || undefined,
-      lastName: payload.lastName || undefined,
       enabled: true,
       emailVerified: false,
       credentials: [
@@ -107,7 +102,7 @@ export class KeycloakAdminService {
     headers: Record<string, string>,
     body?: string,
   ) {
-    return new Promise<{ status: number; body: string; headers: https.IncomingHttpHeaders }>(
+    return new Promise<{ status: number; body: string; headers: IncomingHttpHeaders }>(
       (resolve, reject) => {
         const req = https.request(
           url,
