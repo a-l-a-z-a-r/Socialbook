@@ -151,7 +151,7 @@ const App = () => {
   };
 
   const getActiveToken = () => localToken || getKeycloak().token;
-  const profileMatch = path.match(/^\\/profile\\/([^/]+)$/);
+  const profileMatch = path.match(/^\/profile\/([^/]+)$/);
   const profileUsername = profileMatch ? decodeURIComponent(profileMatch[1]) : '';
 
   useEffect(() => {
