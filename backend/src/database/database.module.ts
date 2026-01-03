@@ -9,6 +9,7 @@ import { MongooseModule } from '@nestjs/mongoose';
       useFactory: (config: ConfigService) => ({
         uri: config.get<string>('MONGODB_URI') ?? 'mongodb://mongo:27017/socialbook',
         dbName: config.get<string>('MONGODB_DB') ?? 'socialbook',
+        autoIndex: true,
       }),
       inject: [ConfigService],
     }),

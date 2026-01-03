@@ -31,3 +31,4 @@ export class Review {
 export type ReviewDocument = HydratedDocument<Review>;
 
 export const ReviewSchema = SchemaFactory.createForClass(Review);
+ReviewSchema.index({ created_at: -1 });
