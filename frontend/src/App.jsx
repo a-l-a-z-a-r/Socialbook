@@ -44,6 +44,7 @@ const App = () => {
   const [profile, setProfile] = useState(null);
   const [authError, setAuthError] = useState('');
   const [feed, setFeed] = useState([]);
+  const [authView, setAuthView] = useState('signin');
   const [localToken, setLocalToken] = useState('');
   const [loginState, setLoginState] = useState({ loading: false, error: '' });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -51,6 +52,9 @@ const App = () => {
   const [signupForm, setSignupForm] = useState({
     username: '',
     password: '',
+    firstName: '',
+    lastName: '',
+    age: '',
   });
 
   useEffect(() => {
@@ -268,6 +272,7 @@ const App = () => {
         throw new Error(message || `Signup failed: ${response.status}`);
       }
       setSignupState({ loading: false, error: '', success: true });
+      setAuthView('signin');
     } catch (err) {
       setSignupState({ loading: false, error: err.message || 'Signup failed.', success: false });
     }
@@ -319,95 +324,145 @@ const App = () => {
         </main>
       ) : !authState.authenticated ? (
         <main className="auth-shell">
-          <section className="auth-hero">
-            <div className="hero-copy">
-              <p className="label">Sign in required</p>
-              <h1>Welcome back to Socialbook</h1>
-              <p className="lede">
-                Log in with your Keycloak account to see your personalized reading feed.
-              </p>
-              {authError && <p className="empty-state">{authError}</p>}
-              <div className="actions">
-                {hasConfig && (
-                  <>
-                    <button className="cta" type="button" onClick={handleLogin}>
-                      Continue with GitHub
-                    </button>
-                    <button className="ghost" type="button" onClick={handleKeycloakLogin}>
-                      Use Keycloak login
-                    </button>
-                  </>
-                )}
+          {authView === 'signup' ? (
+            <section className="auth-hero">
+              <div className="hero-copy">
+                <p className="label">Create account</p>
+                <h1>Join Socialbook</h1>
+                <p className="lede">Tell us a bit about you to get started.</p>
+                <div className="actions">
+                  <button className="ghost" type="button" onClick={() => setAuthView('signin')}>
+                    Back to sign in
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="panel shadow">
-              <p className="label">Sign in</p>
-              <h3>Username & password</h3>
-              <p className="meta">Authenticate directly without leaving this page.</p>
-              <form className="form vertical" onSubmit={handlePasswordLogin}>
-                <label className="field">
-                  <span className="meta">Username</span>
-                  <input
-                    name="username"
-                    value={loginForm.username}
-                    onChange={handleLoginChange}
-                    autoComplete="username"
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span className="meta">Password</span>
-                  <input
-                    name="password"
-                    type="password"
-                    value={loginForm.password}
-                    onChange={handleLoginChange}
-                    autoComplete="current-password"
-                    required
-                  />
-                </label>
-                {loginState.error && <p className="empty-state">{loginState.error}</p>}
-                <button className="primary" type="submit" disabled={loginState.loading}>
-                  {loginState.loading ? 'Signing in...' : 'Sign in'}
-                </button>
-              </form>
-            </div>
-            <div className="panel shadow">
-              <p className="label">Create account</p>
-              <h3>Join Socialbook</h3>
-              <p className="meta">Create a local account stored in Keycloak.</p>
-              <form className="form vertical" onSubmit={handleSignupSubmit}>
-                <label className="field">
-                  <span className="meta">Username</span>
-                  <input
-                    name="username"
-                    value={signupForm.username}
-                    onChange={handleSignupChange}
-                    autoComplete="username"
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span className="meta">Password</span>
-                  <input
-                    name="password"
-                    type="password"
-                    value={signupForm.password}
-                    onChange={handleSignupChange}
-                    autoComplete="new-password"
-                    required
-                  />
-                </label>
-                {signupState.error && <p className="empty-state">{signupState.error}</p>}
-                {signupState.success && (
-                  <p className="empty-state">Account created. Use GitHub login to continue.</p>
-                )}
-                <button className="primary" type="submit" disabled={signupState.loading}>
-                  {signupState.loading ? 'Creating...' : 'Create account'}
-                </button>
-              </form>
-            </div>
-          </section>
+              <div className="panel shadow">
+                <p className="label">New profile</p>
+                <h3>Create your account</h3>
+                <p className="meta">Your credentials are stored in Keycloak.</p>
+                <form className="form vertical" onSubmit={handleSignupSubmit}>
+                  <label className="field">
+                    <span className="meta">First name</span>
+                    <input
+                      name="firstName"
+                      value={signupForm.firstName}
+                      onChange={handleSignupChange}
+                      autoComplete="given-name"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="meta">Last name</span>
+                    <input
+                      name="lastName"
+                      value={signupForm.lastName}
+                      onChange={handleSignupChange}
+                      autoComplete="family-name"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="meta">Age</span>
+                    <input
+                      name="age"
+                      type="number"
+                      min="13"
+                      value={signupForm.age}
+                      onChange={handleSignupChange}
+                      autoComplete="bday-year"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="meta">Username</span>
+                    <input
+                      name="username"
+                      value={signupForm.username}
+                      onChange={handleSignupChange}
+                      autoComplete="username"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="meta">Password</span>
+                    <input
+                      name="password"
+                      type="password"
+                      value={signupForm.password}
+                      onChange={handleSignupChange}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </label>
+                  {signupState.error && <p className="empty-state">{signupState.error}</p>}
+                  {signupState.success && (
+                    <p className="empty-state">Account created. Sign in to continue.</p>
+                  )}
+                  <button className="primary" type="submit" disabled={signupState.loading}>
+                    {signupState.loading ? 'Creating...' : 'Create account'}
+                  </button>
+                </form>
+              </div>
+            </section>
+          ) : (
+            <section className="auth-hero">
+              <div className="hero-copy">
+                <p className="label">Sign in required</p>
+                <h1>Welcome back to Socialbook</h1>
+                <p className="lede">
+                  Log in with your Keycloak account to see your personalized reading feed.
+                </p>
+                {authError && <p className="empty-state">{authError}</p>}
+                <div className="actions">
+                  {hasConfig && (
+                    <>
+                      <button className="cta" type="button" onClick={handleLogin}>
+                        Continue with GitHub
+                      </button>
+                      <button className="ghost" type="button" onClick={handleKeycloakLogin}>
+                        Use Keycloak login
+                      </button>
+                      <button className="primary" type="button" onClick={() => setAuthView('signup')}>
+                        Create account
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="panel shadow">
+                <p className="label">Sign in</p>
+                <h3>Username & password</h3>
+                <p className="meta">Authenticate directly without leaving this page.</p>
+                <form className="form vertical" onSubmit={handlePasswordLogin}>
+                  <label className="field">
+                    <span className="meta">Username</span>
+                    <input
+                      name="username"
+                      value={loginForm.username}
+                      onChange={handleLoginChange}
+                      autoComplete="username"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="meta">Password</span>
+                    <input
+                      name="password"
+                      type="password"
+                      value={loginForm.password}
+                      onChange={handleLoginChange}
+                      autoComplete="current-password"
+                      required
+                    />
+                  </label>
+                  {loginState.error && <p className="empty-state">{loginState.error}</p>}
+                  <button className="primary" type="submit" disabled={loginState.loading}>
+                    {loginState.loading ? 'Signing in...' : 'Sign in'}
+                  </button>
+                </form>
+              </div>
+            </section>
+          )}
         </main>
       ) : (
         <main>
