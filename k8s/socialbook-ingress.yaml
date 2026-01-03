@@ -9,10 +9,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - socialbook.46-62-130-16.nip.io
-      secretName: socialbook-nip-tls
+        - socialbook.ltu-m7011e-11.se
+      secretName: socialbook-tls
   rules:
-    - host: socialbook.46-62-130-16.nip.io
+    - host: socialbook.ltu-m7011e-11.se
       http:
         paths:
           - path: /api
