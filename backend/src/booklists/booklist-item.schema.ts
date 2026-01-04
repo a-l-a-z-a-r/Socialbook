@@ -25,3 +25,4 @@ export class BooklistItem {
 
 export const BooklistItemSchema = SchemaFactory.createForClass(BooklistItem);
 BooklistItemSchema.index({ booklistId: 1, position: 1 });
+.local
