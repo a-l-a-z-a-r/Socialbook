@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: alazar111/socialbook-frontend
-  tag: frontend-c00f8db645f7bd8d5364def36989d4d3bcb2fa60
+  tag: frontend-45feae3ed58588f09f6ed79802748f1f33461576
 
 env:
   VITE_API_BASE: /api
@@ -14,5 +14,5 @@ env:
   SOCIAL_UPSTREAM: socialbook-social:5000
   NOTIFICATIONS_UPSTREAM: socialbook-notifications:5000
   BOOKLISTS_UPSTREAM: socialbook-booklists:5000
-  FRONTEND_IMAGE_TAG: "frontend-c00f8db645f7bd8d5364def36989d4d3bcb2fa60"
-rolloutId: "c00f8db645f7bd8d5364def36989d4d3bcb2fa60"
+  FRONTEND_IMAGE_TAG: "frontend-45feae3ed58588f09f6ed79802748f1f33461576"
+rolloutId: "45feae3ed58588f09f6ed79802748f1f33461576"

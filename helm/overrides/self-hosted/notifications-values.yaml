@@ -1,6 +1,6 @@
 image:
   repository: alazar111/socialbook-backend
-  tag: backend-c00f8db645f7bd8d5364def36989d4d3bcb2fa60
+  tag: backend-45feae3ed58588f09f6ed79802748f1f33461576
 
 env:
   MONGODB_URI: mongodb://socialbook-mongo-notifications:27017/notifications
